@@ -1,0 +1,4 @@
+# Eigenständig auf Netlify deploybar: Base directory = wdf-idf-tool
+[build]
+  publish = "."
+  functions = "netlify/functions"
