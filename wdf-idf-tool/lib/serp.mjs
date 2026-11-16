@@ -52,6 +52,45 @@ export function unwrapGoogleUrl(raw, domain) {
   return raw;
 }
 
+async function mapLimit(list, limit, fn) {
+  const out = new Array(list.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, list.length) }, async () => {
+    while (next < list.length) {
+      const i = next++;
+      out[i] = await fn(list[i]);
+    }
+  }));
+  return out;
+}
+
+/** Folgt Google-Weiterleitungen (max. 4 Sprünge), bis eine Nicht-Google-Adresse erreicht ist. */
+export async function resolveRedirect(url) {
+  let current = url;
+  for (let hop = 0; hop < 4; hop++) {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 6000);
+    try {
+      const res = await fetch(current, {
+        redirect: "manual",
+        signal: controller.signal,
+        headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36" },
+      });
+      const loc = res.headers.get("location");
+      res.body?.cancel?.().catch(() => {});
+      if (!loc) return null;
+      current = new URL(loc, current).href;
+      const viaParam = unwrapGoogleUrl(current);
+      if (!isGoogleHost(viaParam)) return viaParam;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(t);
+    }
+  }
+  return null;
+}
+
 export function blockReason(url) {
   let host;
   try {
@@ -99,9 +138,14 @@ export async function fetchSerp(keyword, { depth = 40 } = {}) {
   const items = (task.result?.[0]?.items || []).filter((i) => i.type === "organic" && i.url);
   // Protokoll für die Fehlersuche (Netlify → Logs → Functions)
   console.log(`SERP „${keyword}“: ${items.length} organische Treffer. Beispiele:`, JSON.stringify(items.slice(0, 3).map((i) => ({ url: i.url, domain: i.domain, breadcrumb: i.breadcrumb }))));
-  const results = items.map((i) => {
-    const url = unwrapGoogleUrl(i.url, i.domain);
-    const unresolved = isGoogleHost(url) && i.domain && !isGoogleHost("https://" + i.domain);
+  // Google liefert inzwischen verschlüsselte Links (google.com/goto?url=…) – dann der Weiterleitung folgen
+  const resolved = await mapLimit(items, 10, async (i) => {
+    const direct = unwrapGoogleUrl(i.url, i.domain);
+    return isGoogleHost(direct) && !/\/search\b/.test(new URL(direct).pathname) ? (await resolveRedirect(direct)) || direct : direct;
+  });
+  const results = items.map((i, idx) => {
+    const url = resolved[idx];
+    const unresolved = isGoogleHost(url) && /\/(goto|url|amp)\b/.test(new URL(url).pathname);
     return {
       rank: i.rank_group,
       url,
