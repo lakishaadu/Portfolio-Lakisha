@@ -1,7 +1,8 @@
 // Holt die Google-Ergebnisse (google.de, Deutsch) über die DataForSEO SERP API
 // und sortiert Seiten aus, die für einen Textvergleich nicht taugen.
+import { env } from "./env.mjs";
 
-const ENDPOINT = process.env.DFS_ENDPOINT || "https://api.dataforseo.com/v3/serp/google/organic/live/regular"; // DFS_ENDPOINT nur für Tests
+const ENDPOINT = () => env("DFS_ENDPOINT") || "https://api.dataforseo.com/v3/serp/google/organic/live/regular"; // DFS_ENDPOINT nur für Tests
 
 // Domains, die keine vergleichbaren Ratgeber-/Blogtexte liefern
 const BLOCKED = [
@@ -36,11 +37,14 @@ export function blockReason(url) {
   return null;
 }
 
-export async function fetchSerp(keyword, { login, password, depth = 30 }) {
+export const dfsConfigured = () => !!(env("DFS_LOGIN") && env("DFS_PASSWORD"));
+
+export async function fetchSerp(keyword, { depth = 40 } = {}) {
+  const login = env("DFS_LOGIN"), password = env("DFS_PASSWORD");
   if (!login || !password) {
-    return { status: 400, body: { error: "Keine DataForSEO-Zugangsdaten hinterlegt. Trag sie unter „Einstellungen“ ein." } };
+    return { status: 400, body: { error: "Keine DataForSEO-Zugangsdaten hinterlegt. Trag DFS_LOGIN und DFS_PASSWORD in Netlify unter „Environment variables“ ein." } };
   }
-  const res = await fetch(ENDPOINT, {
+  const res = await fetch(ENDPOINT(), {
     method: "POST",
     headers: {
       Authorization: "Basic " + Buffer.from(`${login}:${password}`).toString("base64"),

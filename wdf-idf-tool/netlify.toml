@@ -1,0 +1,15 @@
+# WDF*IDF-Tool – eigenständige Netlify-Seite (Base directory: wdf-idf-tool)
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+# Keine Suchmaschinen-Indexierung für das private Tool
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "same-origin"

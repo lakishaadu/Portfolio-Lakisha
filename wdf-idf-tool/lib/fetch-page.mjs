@@ -1,8 +1,8 @@
 // Holt eine fremde Webseite serverseitig ab (umgeht CORS im Browser).
-// Wird vom lokalen server.mjs genutzt.
+// Wird von der Netlify-Funktion genutzt.
 
 const MAX_BYTES = 4 * 1024 * 1024; // 4 MB
-const TIMEOUT_MS = 15000;
+const TIMEOUT_MS = 10000;
 
 function isBlockedHost(hostname) {
   const h = hostname.toLowerCase();

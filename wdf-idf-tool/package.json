@@ -1,0 +1,10 @@
+{
+  "name": "wdf-idf-tool",
+  "private": true,
+  "type": "module",
+  "description": "WDF*IDF-Analyse mit Google-Top-Ergebnissen (DataForSEO), Web-Oberfläche und Bot-API auf Netlify",
+  "dependencies": {
+    "@netlify/blobs": "^11.1.9",
+    "linkedom": "^0.18.15"
+  }
+}

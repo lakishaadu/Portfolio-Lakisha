@@ -25,6 +25,7 @@
   --kw: #3a3415;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
 h2 { font-size: 18px; margin: 0 0 12px; }
 h3 { font-size: 14px; margin: 0 0 8px; }
@@ -45,7 +46,13 @@ h3 { font-size: 14px; margin: 0 0 8px; }
 .proj span { font-size: 12px; color: var(--muted); }
 .del { padding: 4px 10px; font-size: 18px; color: var(--muted); opacity: 0; }
 .projects li:hover .del { opacity: 1; }
-.side-settings { margin-top: 16px; text-align: left; }
+.side-foot { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; font-size: 14px; }
+.side-foot a { text-decoration: none; }
+.login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+.login-card { width: min(380px, 100%); }
+.error-text { color: var(--missing); font-size: 14px; }
+.forms { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+.notice code { font-size: 13px; }
 .main { padding: 28px 32px 64px; max-width: 1100px; width: 100%; }
 
 /* Bausteine */
@@ -66,7 +73,7 @@ textarea { resize: vertical; }
 .seg label:has(input:checked) { background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
 .adv { margin-top: 14px; }
 .adv summary { cursor: pointer; color: var(--text-2); }
-.opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 16px; }
+.opts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 16px; }
 .check { display: flex; align-items: center; gap: 8px; font-weight: 400; }
 .btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 11px 20px; font: 600 15px/1.1 inherit; font-family: inherit; cursor: pointer; }
 .btn:disabled { opacity: .55; cursor: wait; }

@@ -7,18 +7,29 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="layout">
+<div id="login" class="login" hidden>
+  <form id="login-form" class="card login-card">
+    <div class="brand">WDF*IDF<span>Analyse</span></div>
+    <label for="login-pw">Passwort</label>
+    <input id="login-pw" type="password" autocomplete="current-password" required>
+    <div class="actions"><button class="btn" type="submit">Anmelden</button><span id="login-status" class="error-text"></span></div>
+  </form>
+</div>
+<div class="layout" id="app" hidden>
   <aside class="side">
     <div class="brand">WDF*IDF<span>Analyse</span></div>
     <button type="button" id="new" class="btn full">+ Neue Analyse</button>
     <h4>Meine Projekte</h4>
     <ul id="projects" class="projects"></ul>
-    <button type="button" id="open-settings" class="link side-settings">⚙ Einstellungen</button>
+    <div class="side-foot">
+      <a href="api.html" target="_blank" rel="noopener" class="link">🤖 Anleitung für Bots</a>
+      <button type="button" id="logout" class="link">Abmelden</button>
+    </div>
   </aside>
 
   <main class="main">
     <div id="cfg-warning" class="notice" hidden>
-      Für die automatische Google-Abfrage fehlen noch deine DataForSEO-Zugangsdaten. <button type="button" id="cfg-link" class="link">Jetzt eintragen</button>
+      Für die automatische Google-Abfrage fehlen noch die DataForSEO-Zugangsdaten. Trag in Netlify unter „Environment variables“ <code>DFS_LOGIN</code> und <code>DFS_PASSWORD</code> ein und veröffentliche die Seite neu.
     </div>
 
     <form id="form" class="card">
@@ -52,6 +63,7 @@
       <details class="adv">
         <summary>Erweitert</summary>
         <div class="opts">
+          <div><label for="ncomp">Konkurrenz-Seiten</label><select id="ncomp"><option value="10">Top 10</option><option value="20" selected>Top 20</option></select></div>
           <div><label for="limit">Anzahl Begriffe</label><select id="limit"><option>30</option><option selected>50</option><option>100</option></select></div>
           <div><label for="coverage">Begriff muss vorkommen bei</label><select id="coverage"><option value="20">mind. 20 % der Seiten</option><option value="30" selected>mind. 30 % der Seiten</option><option value="50">mind. 50 % der Seiten</option></select></div>
           <div><label for="planned">Geplante Wortanzahl <small>(ohne eigenen Text)</small></label><input id="planned" type="number" min="100" step="100" value="1500"></div>
@@ -115,6 +127,7 @@
         <p><strong>IDF</strong> = <code>log₁₀(1 + Dokumente / Dokumente mit dem Begriff)</code>, berechnet über die verglichenen Seiten. Kommerzielle Tools nutzen dafür riesige Web-Datenbanken, deshalb weichen die absoluten Zahlen ab. Die Empfehlungen zeigen aber in dieselbe Richtung.</p>
         <p><strong>Ziel</strong> = so oft, dass dein WDF dem Durchschnitt der Konkurrenz entspricht. <strong>Zu oft</strong> = mehr als der stärkste Konkurrent.</p>
         <p><strong>Term-Abdeckung</strong> = wie viel vom Ziel du erreichst, gewichtet nach Wichtigkeit des Begriffs.</p>
+        <p><strong>Wortformen</strong> werden zusammengeführt (z. B. „Tipp/Tipps“, „Inhalt/Inhalte“). Welche Schreibweisen dahinterstecken, siehst du in der Tabelle.</p>
         <p><strong>Automatisch aussortiert</strong> werden Marktplätze, Shops, Preisvergleiche, Videos, Social Media, Foren, PDFs, Shop-/Produktseiten (erkannt am Warenkorb) und Seiten mit weniger als 300 Wörtern.</p>
         <p class="muted">WDF*IDF hilft bei der Themenabdeckung, ist aber kein Ranking-Garant. Nutzen für die Leser:innen geht immer vor.</p>
       </div>
@@ -122,20 +135,7 @@
   </main>
 </div>
 
-<dialog id="settings">
-  <form id="settings-form" method="dialog">
-    <h2>Einstellungen</h2>
-    <p class="muted small">Die Google-Ergebnisse kommen über <strong>DataForSEO</strong>. Deine Zugangsdaten werden nur auf deinem Mac gespeichert (Ordner „daten“).</p>
-    <label for="dfs-login">API-Login <small>(deine DataForSEO-E-Mail)</small></label>
-    <input id="dfs-login" type="text" autocomplete="off">
-    <label for="dfs-password">API-Passwort <small>(steht im DataForSEO-Dashboard unter „API Access“ – nicht dein Login-Passwort)</small></label>
-    <input id="dfs-password" type="password" autocomplete="off">
-    <div class="actions">
-      <button class="btn" type="submit">Speichern</button>
-      <button class="btn ghost" type="button" id="close-settings">Abbrechen</button>
-    </div>
-  </form>
-</dialog>
+
 
 <script type="module" src="app.js"></script>
 </body>

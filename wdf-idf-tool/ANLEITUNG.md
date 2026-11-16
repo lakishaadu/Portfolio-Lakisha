@@ -1,50 +1,42 @@
-# WDF*IDF-Tool – Anleitung (Mac)
+# WDF*IDF-Tool – Anleitung (Online-Version auf Netlify)
 
-Keyword eingeben, Text einfügen, und du siehst, welche Begriffe dir im Vergleich zu den Google-Top-10 fehlen und wie oft du sie erwähnen solltest. Das Tool läuft nur auf deinem Mac, deine Daten bleiben dort.
+Keyword oder Link eingeben, und du siehst, welche Begriffe dir im Vergleich zu den Google-Top-10/20 fehlen und wie oft du sie erwähnen solltest. Das Tool läuft auf Netlify, ist mit deinem Passwort geschützt und hat eine Schnittstelle für Bots.
 
-## 1. Einmalig: Node.js installieren
-1. Öffne https://nodejs.org und lade die **LTS-Version** für macOS herunter.
-2. Installer öffnen und durchklicken.
+## Einmalig einrichten: 4 Werte in Netlify eintragen
+In Netlify: dein Projekt öffnen → **Project configuration → Environment variables → Add a variable**.
+Bei jedem Wert **„Contains secret values“** anhaken und als Bereich mindestens **Functions** auswählen.
 
-## 2. Tool starten
-1. Doppelklick auf **`Start.command`** in diesem Ordner.
-2. **Beim allerersten Mal** blockiert macOS das eventuell („Entwickler kann nicht überprüft werden“). Dann so vorgehen:
-   - Rechtsklick auf `Start.command` → **Öffnen** → nochmal **Öffnen**, oder
-   - **Systemeinstellungen → Datenschutz & Sicherheit** → ganz unten bei „Start.command“ auf **Dennoch öffnen** klicken.
-3. Es öffnet sich ein Terminal-Fenster (offen lassen!) und dein Browser mit dem Tool unter http://localhost:8787.
-4. Zum Beenden das Terminal-Fenster schließen.
+| Name | Was du einträgst |
+|---|---|
+| `APP_PASSWORD` | Dein Passwort für die Webseite (mind. 12 Zeichen) |
+| `BOT_API_KEY` | Ein langer, zufälliger Schlüssel für deine Bots (z. B. aus einem Passwort-Generator, 40+ Zeichen) |
+| `DFS_LOGIN` | Dein DataForSEO-API-Login (E-Mail), zu finden unter https://app.dataforseo.com/api-access |
+| `DFS_PASSWORD` | Dein DataForSEO-**API**-Passwort (nicht dein normales Login-Passwort) |
 
-Falls der Doppelklick gar nicht klappt: Terminal öffnen, `cd ` (mit Leerzeichen) eintippen, den Ordner `wdf-idf-tool` ins Terminal ziehen, Enter, dann `node server.mjs` eintippen und http://localhost:8787 im Browser öffnen.
-
-## 3. Einmalig: DataForSEO-Zugang eintragen
-Damit das Tool die Google-Ergebnisse selbst holen kann:
-1. Bei https://app.dataforseo.com einloggen → Bereich **API Access** (https://app.dataforseo.com/api-access).
-2. Dort stehen dein **API-Login** (deine E-Mail) und dein **API-Passwort**. Das API-Passwort ist **nicht** dein normales Login-Passwort.
-3. Im Tool links unten auf **⚙ Einstellungen** → beides eintragen → Speichern.
-
-Die Zugangsdaten liegen danach nur auf deinem Mac (Ordner `daten`).
+Danach: **Deploys → Trigger deploy → Deploy site**, damit die Werte aktiv werden.
+Solange `APP_PASSWORD` fehlt, kann sich niemand anmelden – das Tool ist dann komplett gesperrt.
 
 ## So nutzt du es
 - **Mit Keyword:** Keyword ins obere Feld, optional deinen Text einfügen, „Analyse starten“. Dauert ca. 20–60 Sekunden.
-- **Mit Link:** Link zu deinem Artikel ins obere Feld, „Artikel laden“. Das Tool schlägt dir das Keyword vor (anklicken oder selbst ändern), dann „Mit diesem Keyword analysieren“. Dein Artikel ist automatisch „dein Text“.
+- **Mit Link:** Link zu deinem Artikel ins obere Feld, „Artikel laden“. Das Tool schlägt dir das Keyword vor (anklicken oder ändern), dann „Mit diesem Keyword analysieren“.
 - **Ohne eigenen Text:** Du bekommst eine Schreibvorlage mit empfohlener Länge und den Begriffen, die rein sollten.
-- **Automatischer Filter:** Amazon, Shops, Preisvergleiche, YouTube, Social Media, Foren, PDFs, Produktseiten und zu kurze Seiten werden aussortiert. Du siehst unter „Konkurrenz“, was warum aussortiert wurde, und kannst Seiten trotzdem nutzen oder rausnehmen.
-- **Projekte:** Jede Analyse wird links gespeichert. Projekt öffnen → Text überarbeiten → **„Erneut prüfen“**. Das kostet nichts, weil die Konkurrenz gespeichert ist. Im Verlauf siehst du vorher → nachher.
-- **Bericht:** Oben auf der Ergebnisseite. Screenshot mit ⌘ ⇧ 4, dann Leertaste, dann auf den Bericht klicken – oder „Als PDF sichern“.
+- **Top 10 oder Top 20:** unter „Erweitert“ (Standard: Top 20).
+- **Wortformen** werden zusammengeführt („Tipp/Tipps“). In der Tabelle siehst du die Schreibweisen.
+- **Automatischer Filter:** Amazon, Shops, Preisvergleiche, YouTube, Social Media, Foren, PDFs, Produktseiten und zu kurze Seiten werden aussortiert. Unter „Konkurrenz“ siehst du, was warum aussortiert wurde, und kannst Seiten trotzdem nutzen oder rausnehmen.
+- **Projekte:** Jede Analyse wird online gespeichert (auch die deiner Bots, markiert mit 🤖). Projekt öffnen → Text überarbeiten → **„Erneut prüfen“**. Kostet nichts. Im Verlauf siehst du vorher → nachher.
+- **Bericht:** Screenshot (am Mac ⌘ ⇧ 4, Leertaste, klicken) oder „Als PDF sichern“.
 
-## Wenn etwas nicht klappt
-Schau ins Terminal-Fenster: Dort steht bei jeder Analyse, wie viele Google-Treffer kamen und welche Seiten geladen werden konnten (und warum nicht). Ein Foto davon hilft beim Fehlersuchen.
+## Für deine Bots (z. B. Grokbot in Cursor)
+Gib deinem Bot zwei Dinge:
+1. Die Adresse des Tools plus `/api.html` – dort steht die komplette Anleitung für Bots.
+2. Den `BOT_API_KEY`.
 
-## Neue Version installieren
-1. Tool beenden (Terminal-Fenster schließen).
-2. Neue ZIP entpacken.
-3. Den Ordner **`daten`** aus dem alten Tool-Ordner in den neuen Ordner ziehen. Darin sind deine Projekte und Zugangsdaten.
-4. Neuen Ordner an den alten Platz legen und `Start.command` doppelklicken. Das „Dennoch öffnen“ kommt bei einer neuen Version einmal wieder.
+Mehr braucht er nicht. Er kann dann analysieren, Texte überarbeiten und kostenlos erneut prüfen.
 
 ## Kosten
-Pro neuer Analyse eine Google-Abfrage bei DataForSEO. Die tatsächlichen Kosten zeigt das Tool unter „Konkurrenz“ an. „Erneut prüfen“ ist kostenlos.
+Pro neuer Analyse eine Google-Abfrage bei DataForSEO (die tatsächlichen Kosten stehen unter „Konkurrenz“). „Erneut prüfen“ ist kostenlos. Netlify: Die Nutzung sollte im kostenlosen Rahmen bleiben, das hängt aber von deinem Netlify-Tarif ab.
 
 ## Gut zu wissen
-- Die Werte weichen von TermLabs & Co. ab, weil diese den IDF über riesige Web-Datenbanken berechnen. Hier wird über die verglichenen Seiten gerechnet. Die Empfehlungen zeigen in dieselbe Richtung.
-- Manche Seiten blockieren automatische Abrufe. Die erscheinen unter „Nicht ladbar“, das Tool nimmt dann die nächsten Treffer.
-- Beugungsformen (z. B. „Marketing“ / „Marketings“) werden als eigene Begriffe gezählt.
+- Die Werte weichen von TermLabs & Co. ab, weil diese den IDF über riesige Web-Datenbanken berechnen. Hier wird über die verglichenen Seiten gerechnet.
+- Seiten, die ihren Text erst per JavaScript nachladen, können nicht gelesen werden. Sie erscheinen als „Zu wenig Text (0 Wörter)“.
+- Der Wortformen-Abgleich ist teils großzügig (z. B. „Einsamkeit“ und „einsam“ zählen zusammen).

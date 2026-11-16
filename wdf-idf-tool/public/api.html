@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WDF*IDF Bot-API</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .doc { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+    .doc h1 { font-size: 28px; margin: 0 0 6px; }
+    .doc h2 { margin-top: 28px; }
+    pre { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow-x: auto; font-size: 13px; line-height: 1.45; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    p code, li code, td code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+    .doc table { margin: 8px 0 16px; }
+  </style>
+</head>
+<body>
+<div class="doc">
+  <h1>WDF*IDF Bot-API</h1>
+  <p class="muted">Anleitung für KI-Agenten und Bots. Alle Antworten sind JSON. Basis-Adresse: die Domain dieser Seite.</p>
+
+  <div class="card">
+    <h2 style="margin-top:0">Kurzfassung für Agenten</h2>
+    <ol>
+      <li>Jede Anfrage braucht den Header <code>Authorization: Bearer &lt;BOT_API_KEY&gt;</code>. Den Schlüssel bekommst du von der Person, die dich einsetzt.</li>
+      <li><code>POST /api/v1/analyze</code> mit <code>{"keyword": "…", "text": "…"}</code> oder <code>{"url": "https://…"}</code>. Die Antwort kommt nach ca. 20–60 Sekunden (Timeout im Client auf mindestens 70 s stellen).</li>
+      <li>Arbeite <code>report.missing</code> und <code>report.tooFew</code> in den Text ein (Feld <code>action</code> sagt, wie oft).</li>
+      <li>Überarbeiteten Text kostenlos prüfen: <code>POST /api/v1/projects/{projectId}/recheck</code> mit <code>{"text": "…"}</code>.</li>
+    </ol>
+  </div>
+
+  <h2>1. Analyse starten</h2>
+  <p><code>POST /api/v1/analyze</code> – kostet eine Google-Abfrage bei DataForSEO.</p>
+  <table>
+    <thead><tr><th>Feld</th><th>Pflicht</th><th>Bedeutung</th></tr></thead>
+    <tbody>
+      <tr><td><code>keyword</code></td><td>ja*</td><td>Haupt-Keyword. *Optional, wenn <code>url</code> angegeben ist – dann wird es automatisch erkannt (<code>keywordWasDetected: true</code>).</td></tr>
+      <tr><td><code>text</code></td><td>nein</td><td>Eigener Artikeltext (Zwischenüberschriften als eigene Zeilen). Ohne Text/URL gibt es eine Schreibvorlage (<code>report.writingPlan</code>).</td></tr>
+      <tr><td><code>url</code></td><td>nein</td><td>Link zum eigenen, veröffentlichten Artikel. Wird geladen und als eigener Text genutzt.</td></tr>
+      <tr><td><code>competitors</code></td><td>nein</td><td>Anzahl Konkurrenz-Seiten, 3–20 (Standard 20).</td></tr>
+      <tr><td><code>urls</code></td><td>nein</td><td>Liste eigener Konkurrenz-Links statt Google-Abfrage (kostenlos).</td></tr>
+    </tbody>
+  </table>
+<pre><code>curl -X POST "$BASE/api/v1/analyze" \
+  -H "Authorization: Bearer $BOT_API_KEY" \
+  -H "Content-Type: application/json" \
+  --max-time 90 \
+  -d '{"keyword": "weihnachten alleine", "text": "Weihnachten alleine …"}'</code></pre>
+
+  <h2>2. Antwort (gekürzt)</h2>
+<pre><code>{
+  "projectId": "3f2c…",
+  "projectUrl": "https://…/#projekt=3f2c…",
+  "keyword": "weihnachten alleine",
+  "keywordWasDetected": false,
+  "report": {
+    "coverageScore": 37,                 // Term-Abdeckung in %, null ohne eigenen Text
+    "previousScore": null,
+    "verdict": { "level": "bad", "headline": "…", "text": "…" },
+    "length": { "yours": 1453, "recommendedMin": 650, "recommendedMax": 1000, "competitorMedian": 820 },
+    "missing": [ { "term": "tipps", "forms": ["tipps","tipp"], "usedBy": "8/10", "yourCount": 0, "target": 3, "action": "3× einbauen" } ],
+    "tooFew":  [ { "term": "feiern", "yourCount": 1, "target": 2, "action": "+1× ergänzen", … } ],
+    "tooMany": [ … "action": "2× reduzieren" ],
+    "ok": ["weihnachten", "…"],
+    "writingPlan": [ … nur ohne eigenen Text … ],
+    "checks": [ { "ok": true, "label": "Keyword in den ersten 100 Wörtern", "value": "ja" } ]
+  },
+  "terms": [ { "term": "…", "status": "missing|low|ok|over|plan", "action": "…", "yourCount": 0, "target": 3,
+               "usedBy": "8/10", "wdfIdfCompetitorAvg": 0.091, "wdfIdfCompetitorMax": 0.204, "wdfIdfYours": 0 } ],
+  "competitors": [ { "rank": 1, "url": "…", "title": "…", "status": "used|filtered|error|reserve", "reason": "…" } ],
+  "costUsd": 0.002
+}</code></pre>
+
+  <h2>3. Überarbeiteten Text erneut prüfen (kostenlos)</h2>
+  <p><code>POST /api/v1/projects/{projectId}/recheck</code> mit <code>{"text": "…"}</code> oder <code>{"url": "…"}</code>. Bei URL-Projekten ohne Body wird der Artikel neu geladen. Nutzt die gespeicherte Konkurrenz – keine neue Google-Abfrage.</p>
+<pre><code>curl -X POST "$BASE/api/v1/projects/3f2c…/recheck" \
+  -H "Authorization: Bearer $BOT_API_KEY" -H "Content-Type: application/json" \
+  -d '{"text": "Überarbeiteter Artikel …"}'</code></pre>
+
+  <h2>4. Weitere Endpunkte</h2>
+  <table>
+    <thead><tr><th>Methode &amp; Pfad</th><th>Zweck</th></tr></thead>
+    <tbody>
+      <tr><td><code>GET /api/v1/suggest?url=…</code></td><td>Artikel laden und Keyword-Vorschläge holen (ohne Analyse, kostenlos).</td></tr>
+      <tr><td><code>GET /api/v1/projects</code></td><td>Alle gespeicherten Projekte (Keyword, Datum, Score).</td></tr>
+      <tr><td><code>GET /api/v1/projects/{id}</code></td><td>Aktueller Bericht eines Projekts.</td></tr>
+      <tr><td><code>GET /api/me</code></td><td>Prüft, ob der Schlüssel funktioniert.</td></tr>
+    </tbody>
+  </table>
+  <p>Maschinenlesbare Beschreibung: <a href="openapi.json">openapi.json</a></p>
+
+  <h2>Fehler</h2>
+  <p>Fehler kommen als <code>{"error": "…"}</code> mit HTTP-Status: 400 (Eingabe), 401 (Schlüssel fehlt/falsch), 404 (Projekt), 422 (Seite nicht ladbar oder zu wenige Konkurrenz-Seiten – dann steht in <code>competitors</code> warum), 502 (DataForSEO-Problem).</p>
+
+  <h2>Hinweise für gute Texte</h2>
+  <ul>
+    <li>Begriffe natürlich einbauen, nicht stapeln. „Zu oft“ bedeutet: mehr als der stärkste Konkurrent.</li>
+    <li>Wortformen zählen zusammen („Tipp“ = „Tipps“). <code>forms</code> zeigt, welche Schreibweisen die Konkurrenz nutzt.</li>
+    <li>Die Ziel-Häufigkeiten gelten für die aktuelle Textlänge (mindestens die empfohlene Mindestlänge).</li>
+  </ul>
+</div>
+</body>
+</html>

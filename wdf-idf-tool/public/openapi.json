@@ -1,0 +1,113 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "WDF*IDF Analyse API",
+    "version": "1.0.0",
+    "description": "Vergleicht einen Text mit den Google-Top-Ergebnissen (google.de, Deutsch) und sagt, welche Begriffe fehlen und wie oft sie vorkommen sollten. Anleitung: /api.html"
+  },
+  "servers": [{ "url": "/" }],
+  "security": [{ "bearer": [] }],
+  "components": {
+    "securitySchemes": { "bearer": { "type": "http", "scheme": "bearer", "description": "BOT_API_KEY" } },
+    "schemas": {
+      "Term": {
+        "type": "object",
+        "properties": {
+          "term": { "type": "string" },
+          "forms": { "type": "array", "items": { "type": "string" } },
+          "usedBy": { "type": "string", "description": "z. B. 8/10 Konkurrenz-Seiten" },
+          "yourCount": { "type": "integer" },
+          "target": { "type": "integer" },
+          "action": { "type": "string", "description": "z. B. „3× einbauen“, „+1× ergänzen“, „2× reduzieren“" }
+        }
+      },
+      "Result": {
+        "type": "object",
+        "properties": {
+          "projectId": { "type": "string" },
+          "projectUrl": { "type": "string" },
+          "keyword": { "type": "string" },
+          "keywordWasDetected": { "type": "boolean" },
+          "keywordSuggestions": { "type": "array", "items": { "type": "string" } },
+          "report": {
+            "type": "object",
+            "properties": {
+              "coverageScore": { "type": ["integer", "null"] },
+              "previousScore": { "type": ["integer", "null"] },
+              "verdict": { "type": "object" },
+              "length": { "type": "object" },
+              "missing": { "type": "array", "items": { "$ref": "#/components/schemas/Term" } },
+              "tooFew": { "type": "array", "items": { "$ref": "#/components/schemas/Term" } },
+              "tooMany": { "type": "array", "items": { "$ref": "#/components/schemas/Term" } },
+              "ok": { "type": "array", "items": { "type": "string" } },
+              "writingPlan": { "type": "array", "items": { "$ref": "#/components/schemas/Term" } },
+              "checks": { "type": "array", "items": { "type": "object" } }
+            }
+          },
+          "terms": { "type": "array", "items": { "type": "object" } },
+          "competitors": { "type": "array", "items": { "type": "object" } },
+          "costUsd": { "type": ["number", "null"] },
+          "history": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "Error": { "type": "object", "properties": { "error": { "type": "string" } } }
+    }
+  },
+  "paths": {
+    "/api/v1/analyze": {
+      "post": {
+        "operationId": "analyze",
+        "summary": "WDF*IDF-Analyse gegen die Google-Top-Ergebnisse (dauert 20–60 s)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "keyword": { "type": "string", "description": "Pflicht, außer wenn url angegeben ist" },
+                  "text": { "type": "string", "description": "Eigener Artikeltext" },
+                  "url": { "type": "string", "description": "Link zum eigenen Artikel" },
+                  "competitors": { "type": "integer", "minimum": 3, "maximum": 20, "default": 20 },
+                  "urls": { "type": "array", "items": { "type": "string" }, "description": "Eigene Konkurrenz-Links statt Google-Abfrage" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Ergebnis", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Result" } } } },
+          "4XX": { "description": "Fehler", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/recheck": {
+      "post": {
+        "operationId": "recheck",
+        "summary": "Überarbeiteten Text gegen die gespeicherte Konkurrenz prüfen (kostenlos)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "text": { "type": "string" }, "url": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "Ergebnis", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Result" } } } } }
+      }
+    },
+    "/api/v1/projects/{id}": {
+      "get": {
+        "operationId": "getProject",
+        "summary": "Aktueller Bericht eines Projekts",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Ergebnis", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Result" } } } } }
+      }
+    },
+    "/api/v1/projects": {
+      "get": { "operationId": "listProjects", "summary": "Alle Projekte", "responses": { "200": { "description": "Liste" } } }
+    },
+    "/api/v1/suggest": {
+      "get": {
+        "operationId": "suggestKeyword",
+        "summary": "Artikel laden und Keyword-Vorschläge holen",
+        "parameters": [{ "name": "url", "in": "query", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Vorschläge" } }
+      }
+    }
+  }
+}

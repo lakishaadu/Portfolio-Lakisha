@@ -7,22 +7,93 @@ a about above after again against all am an and any are as at be because been be
 
 const WORD = /[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu;
 
-/** Zählt Wörter und (optional) Zweier-Wortgruppen. Wortgruppen entstehen nie über Satzgrenzen hinweg. */
+/* ---------- Wortformen zusammenführen: deutscher Snowball-Stemmer ---------- */
+const V = "aeiouyäöü";
+const isV = (c) => V.includes(c);
+const S_END = "bdfghklmnrtp"; // gültige Buchstaben vor Plural-s (+p für „Tipps“, „Apps“)
+const ST_END = "bdfghklmnt";
+const stemCache = new Map();
+
+export function stemDe(word) {
+  if (word.length < 4 || /\d/.test(word)) return word;
+  const cached = stemCache.get(word);
+  if (cached) return cached;
+  let w = word.replace(/ß/g, "ss");
+  // u/y zwischen Vokalen markieren
+  w = w.replace(/([aeiouyäöü])u(?=[aeiouyäöü])/g, "$1U").replace(/([aeiouyäöü])y(?=[aeiouyäöü])/g, "$1Y");
+  const region = (str, from) => {
+    for (let i = from + 1; i < str.length; i++) if (!isV(str[i]) && isV(str[i - 1])) return i + 1;
+    return str.length;
+  };
+  let r1 = Math.max(3, region(w, 0));
+  const r2 = region(w, r1);
+  const inR = (suffixLen, r) => w.length - suffixLen >= r;
+
+  // Schritt 1
+  let m = w.match(/(ern|em|er|en|es|e|s)$/);
+  if (m) {
+    const suf = m[1];
+    if (inR(suf.length, r1)) {
+      if (["em", "ern", "er"].includes(suf)) w = w.slice(0, -suf.length);
+      else if (["e", "en", "es"].includes(suf)) {
+        w = w.slice(0, -suf.length);
+        if (w.endsWith("niss")) w = w.slice(0, -1);
+      } else if (suf === "s" && S_END.includes(w[w.length - 2])) w = w.slice(0, -1);
+    }
+  }
+  // Schritt 2
+  m = w.match(/(est|en|er|st)$/);
+  if (m) {
+    const suf = m[1];
+    if (inR(suf.length, r1)) {
+      if (suf !== "st") w = w.slice(0, -suf.length);
+      else if (ST_END.includes(w[w.length - 3]) && w.length - 3 >= 3) w = w.slice(0, -2);
+    }
+  }
+  // Schritt 3
+  m = w.match(/(isch|lich|heit|keit|end|ung|ig|ik)$/);
+  if (m && inR(m[1].length, r2)) {
+    const suf = m[1];
+    w = w.slice(0, -suf.length);
+    if ((suf === "end" || suf === "ung") && w.endsWith("ig") && inR(2, r2) && w[w.length - 3] !== "e") w = w.slice(0, -2);
+    else if ((suf === "ig" || suf === "ik" || suf === "isch") && w.endsWith("e")) w = w + suf; // nicht nach e
+    else if ((suf === "lich" || suf === "heit") && /(er|en)$/.test(w) && inR(2, r1)) w = w.slice(0, -2);
+    else if (suf === "keit" && /(lich|ig)$/.test(w)) {
+      const s2 = w.endsWith("lich") ? 4 : 2;
+      if (inR(s2, r2)) w = w.slice(0, -s2);
+    }
+  }
+  w = w.replace(/U/g, "u").replace(/Y/g, "y").replace(/ä/g, "a").replace(/ö/g, "o").replace(/ü/g, "u");
+  stemCache.set(word, w);
+  return w;
+}
+
+/** Schlüssel für ein Wort oder eine Wortgruppe (Wortformen zusammengeführt). */
+export const termKey = (phrase) => phrase.toLowerCase().split(/\s+/).filter(Boolean).map(stemDe).join(" ");
+
+/** Zählt Wörter und (optional) Zweier-Wortgruppen – Wortformen werden zusammengeführt.
+ *  counts: Schlüssel -> Anzahl, forms: Schlüssel -> Map(Schreibweise -> Anzahl). */
 export function analyzeText(text, useBigrams = true) {
   const counts = new Map();
+  const forms = new Map();
   let total = 0;
-  const add = (t) => counts.set(t, (counts.get(t) || 0) + 1);
+  const add = (key, surface) => {
+    counts.set(key, (counts.get(key) || 0) + 1);
+    let f = forms.get(key);
+    if (!f) forms.set(key, (f = new Map()));
+    f.set(surface, (f.get(surface) || 0) + 1);
+  };
   const ok = (w) => w.length > 1 && !STOP.has(w);
   for (const sentence of text.split(/[.!?;:|•·\n]+/)) {
     // Bindestrich-Wörter aufteilen: „Content-Marketing“ = „content marketing“
     const toks = (sentence.toLowerCase().replace(/(\p{L})[-‐–](?=\p{L})/gu, "$1 ").match(WORD) || []).filter((t) => !/^\d+$/.test(t));
     total += toks.length;
     toks.forEach((t, i) => {
-      if (ok(t)) add(t);
-      if (useBigrams && i > 0 && ok(t) && ok(toks[i - 1])) add(toks[i - 1] + " " + t);
+      if (ok(t)) add(stemDe(t), t);
+      if (useBigrams && i > 0 && ok(t) && ok(toks[i - 1])) add(stemDe(toks[i - 1]) + " " + stemDe(t), toks[i - 1] + " " + t);
     });
   }
-  return { counts, total };
+  return { counts, forms, total };
 }
 
 export const wdf = (f, L) => (L > 1 && f > 0 ? Math.log2(f + 1) / Math.log2(L) : 0);
@@ -63,7 +134,10 @@ export function compute(own, comps, opts) {
     const target = L > 1 ? Math.max(1, Math.round(Math.pow(L, avgW) - 1)) : 1;
     const maxF = Math.max(target, L > 1 ? Math.floor(Math.pow(L, maxW) - 1) : 0);
     const avgCount = comps.reduce((a, c) => a + (c.counts.get(t) || 0), 0) / comps.length;
-    rows.push({ term: t, used, idf: i, avg: avgW * i, max: maxW * i, own: own ? wdf(fOwn, own.total) * i : 0, fOwn, target, maxF, avgCount });
+    const formCount = new Map();
+    for (const c of comps) for (const [f, n] of c.forms?.get(t) || []) formCount.set(f, (formCount.get(f) || 0) + n);
+    const formsSorted = [...formCount.entries()].sort((a, b) => b[1] - a[1]).map(([f]) => f);
+    rows.push({ key: t, term: formsSorted[0] || t, forms: formsSorted.slice(0, 5), used, idf: i, avg: avgW * i, max: maxW * i, own: own ? wdf(fOwn, own.total) * i : 0, fOwn, target, maxF, avgCount });
   }
   rows.sort((a, b) => b.avg - a.avg);
   return dedupe(rows).slice(0, opts.limit).map((r) => ({ ...r, status: status(r, !!own) }));
@@ -72,10 +146,10 @@ export function compute(own, comps, opts) {
 // Wenn „content marketing“ fast genauso stark ist wie „content“, beides behalten – aber Einzelwörter,
 // die nur als Teil einer Wortgruppe vorkommen (gleiche Häufigkeit), nicht doppelt auflisten.
 function dedupe(rows) {
-  const bigrams = rows.filter((r) => r.term.includes(" "));
+  const bigrams = rows.filter((r) => r.key.includes(" "));
   return rows.filter((r) => {
-    if (r.term.includes(" ")) return true;
-    return !bigrams.some((b) => b.term.split(" ").includes(r.term) && Math.abs(b.avgCount - r.avgCount) < 0.01 && b.used === r.used);
+    if (r.key.includes(" ")) return true;
+    return !bigrams.some((b) => b.key.split(" ").includes(r.key) && Math.abs(b.avgCount - r.avgCount) < 0.01 && b.used === r.used);
   });
 }
 
