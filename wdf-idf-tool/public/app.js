@@ -188,15 +188,21 @@ async function runAnalysis(input) {
 function loadIntoUi(project) {
   state.project = project;
   history.replaceState(null, "", `#projekt=${project.id}`);
-  $("#keyword").value = project.own?.kind === "url" ? project.own.url : project.keyword;
-  if (project.own?.kind === "text") {
+  // Link-Projekte: veröffentlichte Adresse merken, auch wenn danach Text geprüft wurde
+  if (project.own?.kind === "url" && !project.publishedUrl) project.publishedUrl = project.own.url;
+  const linkProject = !!project.publishedUrl;
+  $("#keyword").value = linkProject ? project.publishedUrl : project.keyword;
+  $("#recheck-text").value = linkProject && project.own?.kind === "text" ? project.own.text : "";
+  if (!linkProject && project.own?.kind === "text") {
     $("#mode-text").checked = true;
     $("#own-text").value = project.own.text;
   }
   syncOwnMode();
   syncInputMode();
+  $("#kw-confirm").hidden = true;
+  $("#recheck-text-wrap").hidden = !linkProject;
   $("#recheck").hidden = !project.own;
-  $("#saved-hint").textContent = `Projekt „${project.keyword}“ – gespeichert. ${project.own ? (project.own.kind === "url" ? "Artikel überarbeiten und „Erneut prüfen“ klicken – kostet nichts." : "Text überarbeiten und „Erneut prüfen“ klicken – kostet nichts.") : ""}`;
+  $("#saved-hint").textContent = `Projekt „${project.keyword}“ – gespeichert. ${project.own ? (linkProject ? "Überarbeiteten Text unten einfügen (oder leer lassen für den veröffentlichten Artikel) und „Erneut prüfen“ klicken – kostet nichts." : "Text überarbeiten und „Erneut prüfen“ klicken – kostet nichts.") : ""}`;
   recompute();
 }
 
@@ -220,7 +226,7 @@ const strip = (o) => { if (!o) return o; const { counts, forms, total, ...rest }
 async function persist() {
   const p = state.project;
   try {
-    const saved = await api(`/api/projects/${p.id}`, { method: "PUT", body: { own: strip(p.own), competitors: p.competitors.map(strip), history: p.history } });
+    const saved = await api(`/api/projects/${p.id}`, { method: "PUT", body: { own: strip(p.own), competitors: p.competitors.map(strip), history: p.history, publishedUrl: p.publishedUrl } });
     state.project.updatedAt = saved.updatedAt;
     loadProjectList();
   } catch (err) {
@@ -233,9 +239,14 @@ async function recheck() {
   if (!p) return;
   busy(true, "Prüfe erneut");
   try {
-    if (p.own?.kind === "url") {
-      const art = await api(`/api/extract?url=${encodeURIComponent(p.own.url)}`);
-      p.own = { kind: "url", ...art };
+    if (p.publishedUrl) {
+      const pasted = $("#recheck-text").value.trim();
+      if (pasted) {
+        p.own = { kind: "text", text: pasted, h2: detectH2(pasted), sourceUrl: p.publishedUrl };
+      } else {
+        const art = await api(`/api/extract?url=${encodeURIComponent(p.publishedUrl)}`);
+        p.own = { kind: "url", ...art };
+      }
     } else {
       const text = $("#own-text").value.trim();
       if (!text) throw new Error("Bitte deinen Text einfügen.");
@@ -494,6 +505,8 @@ function newAnalysis() {
   syncInputMode();
   $("#results").hidden = true;
   $("#recheck").hidden = true;
+  $("#recheck-text-wrap").hidden = true;
+  $("#recheck-text").value = "";
   $("#saved-hint").textContent = "";
   setStatus("");
   loadProjectList();

@@ -109,6 +109,7 @@ async function aiOverviewSummary() {
 async function analyze(req, who, compact) {
   const input = await readJson(req);
   const project = await runPipeline(input);
+  if (project.own?.kind === "url") project.publishedUrl = project.own.url;
   const ev = evaluate(project);
   if (!ev.ok) {
     // Trotzdem zurückgeben, damit man sieht, warum
@@ -124,9 +125,10 @@ async function recheck(req, id, compact) {
   const existing = await getProject(id);
   if (!existing) return json({ error: "Projekt nicht gefunden." }, 404);
   const input = await readJson(req);
-  const own = (await ownFromInput(input)) || (existing.own?.kind === "url" ? { kind: "url", ...(await loadArticle(existing.own.url)) } : null);
+  const publishedUrl = existing.publishedUrl || (existing.own?.kind === "url" ? existing.own.url : null);
+  const own = (await ownFromInput(input)) || (publishedUrl ? { kind: "url", ...(await loadArticle(publishedUrl)) } : null);
   if (!own) throw new UserError("Bitte „text“ oder „url“ mitschicken.");
-  const project = { ...existing, own };
+  const project = { ...existing, own, publishedUrl: publishedUrl || undefined };
   const ev = evaluate(project);
   if (!ev.ok) return json({ error: "Im Projekt sind zu wenige Konkurrenz-Seiten." }, 422);
   const last = (existing.history || []).at(-1);
@@ -247,7 +249,7 @@ export default async (req, context) => {
         const body = await readJson(req);
         const existing = await getProject(id);
         if (!existing) return json({ error: "Projekt nicht gefunden." }, 404);
-        const allowed = { own: body.own, competitors: body.competitors, history: body.history, keyword: body.keyword };
+        const allowed = { own: body.own, competitors: body.competitors, history: body.history, keyword: body.keyword, publishedUrl: typeof body.publishedUrl === "string" ? body.publishedUrl : undefined };
         Object.keys(allowed).forEach((k) => allowed[k] === undefined && delete allowed[k]);
         return json(await saveProject(forStorage({ ...existing, ...allowed, id })));
       }
