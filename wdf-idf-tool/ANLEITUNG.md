@@ -26,6 +26,16 @@ Solange `APP_PASSWORD` fehlt, kann sich niemand anmelden – das Tool ist dann k
 - **Projekte:** Jede Analyse wird online gespeichert (auch die deiner Bots, markiert mit 🤖). Projekt öffnen → Text überarbeiten → **„Erneut prüfen“**. Kostet nichts. Im Verlauf siehst du vorher → nachher.
 - **Bericht:** Screenshot (am Mac ⌘ ⇧ 4, Leertaste, klicken) oder „Als PDF sichern“.
 
+## Die Reiter
+- **Analyse:** wie bisher, plus **Google-Einblicke** im Bericht: deine aktuelle Position, „Nutzer fragen auch“-Fragen und ob du in der KI-Übersicht zitiert wirst.
+- **Rankings:** Keywords beobachten. Jeden Montag früh werden die Positionen automatisch geprüft (Top 30). Dazu: „Wofür rankt meine Domain?“
+- **Keyword-Ideen:** verwandte Keywords mit Suchvolumen und Schwierigkeit, plus **Content-Lücken** gegenüber einer Konkurrenz-Domain.
+- **Backlinks:** wer auf dich verlinkt, plus **Link-Lücken** (wer auf die Konkurrenz verlinkt, aber nicht auf dich).
+- **KI-Sichtbarkeit:** Zusammenfassung aus deinen Analysen (kostenlos) und Erwähnungen in KI-Antworten (ChatGPT-Daten gibt es bei DataForSEO nur für USA/Englisch).
+- **Einstellungen:** deine Domains, Monatsbudget und Verbrauch.
+
+Alle Recherche-Ergebnisse werden gespeichert – erneutes Ansehen ist kostenlos, „Neu abfragen“ kostet.
+
 ## Für deine Bots (z. B. Grokbot in Cursor)
 Gib deinem Bot zwei Dinge:
 1. Die Adresse des Tools plus `/api.html` – dort steht die komplette Anleitung für Bots.

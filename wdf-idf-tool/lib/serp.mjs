@@ -1,8 +1,7 @@
 // Holt die Google-Ergebnisse (google.de, Deutsch) über die DataForSEO SERP API
 // und sortiert Seiten aus, die für einen Textvergleich nicht taugen.
-import { env } from "./env.mjs";
-
-const ENDPOINT = () => env("DFS_ENDPOINT") || "https://api.dataforseo.com/v3/serp/google/organic/live/regular"; // DFS_ENDPOINT nur für Tests
+import { dfsLive } from "./dfs.mjs";
+export { dfsConfigured } from "./dfs.mjs";
 
 // Domains, die keine vergleichbaren Ratgeber-/Blogtexte liefern
 const BLOCKED = [
@@ -23,7 +22,7 @@ const BLOCKED = [
   ["trustpilot.", "Bewertungsportal"], ["google.", "Google-Dienst"],
 ];
 
-const isGoogleHost = (u) => {
+export const isGoogleHost = (u) => {
   try {
     return /(^|\.)google\.[a-z.]+$/i.test(new URL(u).hostname);
   } catch {
@@ -52,7 +51,7 @@ export function unwrapGoogleUrl(raw, domain) {
   return raw;
 }
 
-async function mapLimit(list, limit, fn) {
+export async function mapLimit(list, limit, fn) {
   const out = new Array(list.length);
   let next = 0;
   await Promise.all(Array.from({ length: Math.min(limit, list.length) }, async () => {
@@ -105,55 +104,98 @@ export function blockReason(url) {
   return null;
 }
 
-export const dfsConfigured = () => !!(env("DFS_LOGIN") && env("DFS_PASSWORD"));
+/** Echte Domain aus dem Breadcrumb (z. B. „https://www.br.de › nachrichten › …“) – ohne Weiterleitung aufzulösen. */
+export function breadcrumbHost(item) {
+  const m = String(item?.breadcrumb || "").match(/^(https?:\/\/)?([^\s›/]+)/);
+  const host = m ? m[2].toLowerCase().replace(/^www\./, "") : "";
+  return /\./.test(host) && !/(^|\.)google\./.test(host) ? host : "";
+}
 
-export async function fetchSerp(keyword, { depth = 40 } = {}) {
-  const login = env("DFS_LOGIN"), password = env("DFS_PASSWORD");
-  if (!login || !password) {
-    return { status: 400, body: { error: "Keine DataForSEO-Zugangsdaten hinterlegt. Trag DFS_LOGIN und DFS_PASSWORD in Netlify unter „Environment variables“ ein." } };
-  }
-  const res = await fetch(ENDPOINT(), {
-    method: "POST",
-    headers: {
-      Authorization: "Basic " + Buffer.from(`${login}:${password}`).toString("base64"),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify([{ keyword, location_code: 2276, language_code: "de", device: "desktop", depth }]),
-  });
-  let data;
+const hostOfUrl = (u) => {
   try {
-    data = await res.json();
+    return new URL(u).hostname.toLowerCase().replace(/^www\./, "");
   } catch {
-    return { status: 502, body: { error: `DataForSEO antwortet nicht verständlich (HTTP ${res.status}).` } };
+    return "";
   }
-  if (res.status === 401 || data.status_code === 40100) {
-    return { status: 401, body: { error: "DataForSEO lehnt die Zugangsdaten ab. Bitte Login (E-Mail) und API-Passwort prüfen." } };
-  }
-  const task = data.tasks?.[0];
-  if (!task || task.status_code !== 20000) {
-    const msg = task?.status_message || data.status_message || "Unbekannter Fehler";
-    const hint = /balance|fund|payment/i.test(msg) ? " – vermutlich ist dein Guthaben aufgebraucht." : "";
-    return { status: 502, body: { error: `DataForSEO: ${msg}${hint}` } };
-  }
-  const items = (task.result?.[0]?.items || []).filter((i) => i.type === "organic" && i.url);
-  // Protokoll für die Fehlersuche (Netlify → Logs → Functions)
-  console.log(`SERP „${keyword}“: ${items.length} organische Treffer. Beispiele:`, JSON.stringify(items.slice(0, 3).map((i) => ({ url: i.url, domain: i.domain, breadcrumb: i.breadcrumb }))));
-  // Google liefert inzwischen verschlüsselte Links (google.com/goto?url=…) – dann der Weiterleitung folgen
-  const resolved = await mapLimit(items, 10, async (i) => {
-    const direct = unwrapGoogleUrl(i.url, i.domain);
-    return isGoogleHost(direct) && !/\/search\b/.test(new URL(direct).pathname) ? (await resolveRedirect(direct)) || direct : direct;
+};
+const matchesDomain = (host, domains) => !!host && domains.some((d) => host === d || host.endsWith("." + d));
+
+/** Wandelt Google-Weiterleitungen in echte Adressen um (parallel, mit Fallback). */
+async function resolveUrl(rawUrl) {
+  const direct = unwrapGoogleUrl(rawUrl);
+  if (!isGoogleHost(direct)) return direct;
+  if (/\/search\b/.test(new URL(direct).pathname)) return direct;
+  return (await resolveRedirect(direct)) || direct;
+}
+
+/**
+ * Google-Ergebnisse (google.de, Deutsch, Desktop) inkl. Nutzerfragen, KI-Übersicht und Featured Snippet.
+ * ownDomains: eigene Domains, um die eigene Position zu finden.
+ */
+export async function fetchSerp(keyword, { depth = 40, ownDomains = [], area = "analyse", resolveAll = true } = {}) {
+  const { result, cost } = await dfsLive("/v3/serp/google/organic/live/advanced", { keyword, location_code: 2276, language_code: "de", device: "desktop", depth }, { area });
+  const all = result?.items || [];
+  const organic = all.filter((i) => i.type === "organic" && i.url);
+  console.log(`SERP „${keyword}“: ${organic.length} organische Treffer. Beispiele:`, JSON.stringify(organic.slice(0, 2).map((i) => ({ url: i.url, domain: i.domain, breadcrumb: i.breadcrumb }))));
+
+  // Domain vorab aus Breadcrumb/URL bestimmen, Weiterleitungen nur wo nötig auflösen
+  const pre = organic.map((i) => {
+    const direct = unwrapGoogleUrl(i.url);
+    const host = !isGoogleHost(direct) ? hostOfUrl(direct) : breadcrumbHost(i) || (i.domain && !/google\./.test(i.domain) ? i.domain.replace(/^www\./, "") : "");
+    return { i, direct, host };
   });
-  const results = items.map((i, idx) => {
-    const url = resolved[idx];
-    const unresolved = isGoogleHost(url) && /\/(goto|url|amp)\b/.test(new URL(url).pathname);
+  const resolved = await mapLimit(pre, 10, async ({ i, direct, host }) => {
+    if (!isGoogleHost(direct)) return direct;
+    const preBlocked = host && blockReason("https://" + host);
+    if (!resolveAll && !matchesDomain(host, ownDomains)) return direct;
+    if (preBlocked) return direct; // Amazon & Co. müssen wir nicht auflösen
+    return resolveUrl(i.url);
+  });
+
+  const results = pre.map(({ i, host }, idx) => {
+    let url = resolved[idx];
+    const finalHost = isGoogleHost(url) ? host : hostOfUrl(url);
+    const unresolved = isGoogleHost(url);
     return {
       rank: i.rank_group,
       url,
-      originalUrl: url !== i.url ? i.url : undefined,
-      domain: i.domain,
+      domain: finalHost || i.domain,
       title: i.title || "",
-      blocked: unresolved ? "Google-Weiterleitung (Ziel nicht lesbar)" : blockReason(url),
+      blocked: host && blockReason("https://" + host) ? blockReason("https://" + host) : unresolved ? (host ? null : "Google-Weiterleitung (Ziel nicht lesbar)") : blockReason(url),
+      unresolved: unresolved && !!host,
     };
   });
-  return { status: 200, body: { keyword, cost: data.cost ?? task.cost ?? null, results } };
+
+  // Eigene Position
+  const own = results.find((r) => matchesDomain(r.domain, ownDomains));
+  // Nutzer fragen auch
+  const paa = [];
+  for (const it of all.filter((x) => x.type === "people_also_ask")) for (const q of it.items || []) if (q.title) paa.push(q.title);
+  // KI-Übersicht (Google AI Overview)
+  const aio = all.find((x) => x.type === "ai_overview");
+  let aiOverview = null;
+  if (aio) {
+    const refs = [];
+    const collect = (arr) => (arr || []).forEach((r) => r?.url && refs.push({ domain: (r.domain || hostOfUrl(r.url)).replace(/^www\./, ""), url: r.url, title: r.title || r.source || "" }));
+    collect(aio.references);
+    (aio.items || []).forEach((el) => collect(el.references));
+    const unique = [...new Map(refs.map((r) => [r.url, r])).values()];
+    aiOverview = { present: true, references: unique.slice(0, 15), ownCited: unique.some((r) => matchesDomain(r.domain, ownDomains)) };
+  }
+  const fs = all.find((x) => x.type === "featured_snippet");
+  const featured = fs ? { domain: (fs.domain || "").replace(/^www\./, ""), url: fs.url, title: fs.title || "" } : null;
+
+  return {
+    keyword,
+    cost,
+    results,
+    insights: {
+      ownPosition: own ? { rank: own.rank, url: own.url, domain: own.domain } : null,
+      peopleAlsoAsk: [...new Set(paa)].slice(0, 12),
+      aiOverview: aiOverview || { present: false, references: [], ownCited: false },
+      featuredSnippet: featured,
+      checkedDepth: depth,
+      itemTypes: [...new Set(all.map((x) => x.type))],
+    },
+  };
 }

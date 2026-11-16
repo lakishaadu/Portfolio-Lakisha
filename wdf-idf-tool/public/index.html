@@ -32,6 +32,16 @@
       Für die automatische Google-Abfrage fehlen noch die DataForSEO-Zugangsdaten. Trag in Netlify unter „Environment variables“ <code>DFS_LOGIN</code> und <code>DFS_PASSWORD</code> ein und veröffentliche die Seite neu.
     </div>
 
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab active" data-tab="analyse">Analyse</button>
+      <button type="button" class="tab" data-tab="rankings">Rankings</button>
+      <button type="button" class="tab" data-tab="ideen">Keyword-Ideen</button>
+      <button type="button" class="tab" data-tab="backlinks">Backlinks</button>
+      <button type="button" class="tab" data-tab="ki">KI-Sichtbarkeit</button>
+      <button type="button" class="tab" data-tab="einstellungen">Einstellungen</button>
+    </nav>
+
+    <div class="tabpane" id="tab-analyse">
     <form id="form" class="card">
       <label for="keyword">Keyword oder Link zu deinem Artikel</label>
       <input id="keyword" type="text" placeholder="z. B. content marketing strategie  –  oder  https://deine-seite.de/blog/artikel" autocomplete="off" required>
@@ -132,11 +142,121 @@
         <p class="muted">WDF*IDF hilft bei der Themenabdeckung, ist aber kein Ranking-Garant. Nutzen für die Leser:innen geht immer vor.</p>
       </div>
     </section>
+    </div>
+
+    <!-- ===== Rankings ===== -->
+    <div class="tabpane" id="tab-rankings" hidden>
+      <div class="card">
+        <h2>Rankings beobachten</h2>
+        <p class="muted small">Jeden Montag früh prüft das Tool automatisch deine Google-Positionen (Top 30, google.de). Kosten: ca. 0,6 Cent pro Keyword und Prüfung.</p>
+        <form id="rk-form" class="row-form">
+          <input id="rk-keyword" type="text" placeholder="Keyword, z. B. weihnachten alleine (mehrere mit Komma trennen)" autocomplete="off">
+          <select id="rk-domain"></select>
+          <button class="btn" type="submit">Hinzufügen</button>
+        </form>
+        <div class="actions"><button type="button" id="rk-check" class="btn ghost small">Jetzt alle prüfen</button><span id="rk-status" class="muted small"></span></div>
+        <div class="table-wrap"><table id="rk-table"></table></div>
+      </div>
+      <div class="card">
+        <h2>Wofür rankt meine Domain?</h2>
+        <p class="muted small">Alle Keywords, für die eine Domain bei Google.de gefunden wird (Top 100), sortiert nach Suchvolumen. Kosten: ca. 1–3 Cent.</p>
+        <form class="row-form" data-research="ranked-keywords">
+          <select name="domain" class="domain-select"></select>
+          <button class="btn" type="submit">Abfragen</button>
+        </form>
+        <div class="research-out" id="out-ranked-keywords"></div>
+      </div>
+    </div>
+
+    <!-- ===== Keyword-Ideen ===== -->
+    <div class="tabpane" id="tab-ideen" hidden>
+      <div class="card">
+        <h2>Keyword-Ideen</h2>
+        <p class="muted small">Verwandte Keywords mit Suchvolumen (Google.de) und Schwierigkeit 0–100. Kosten: ca. 1–2 Cent.</p>
+        <form class="row-form" data-research="keyword-ideas">
+          <input name="keyword" type="text" placeholder="Thema, z. B. weihnachten alleine" autocomplete="off" required>
+          <button class="btn" type="submit">Ideen finden</button>
+        </form>
+        <div class="research-out" id="out-keyword-ideas"></div>
+      </div>
+      <div class="card">
+        <h2>Content-Lücken</h2>
+        <p class="muted small">Keywords, für die eine Konkurrenz-Domain rankt – deine Domain aber nicht. Kosten: ca. 1–3 Cent.</p>
+        <form class="row-form" data-research="content-gap">
+          <select name="own" class="domain-select"></select>
+          <input name="competitor" type="text" placeholder="Konkurrenz-Domain, z. B. reisereporter.de" autocomplete="off" required>
+          <button class="btn" type="submit">Lücken finden</button>
+        </form>
+        <div class="research-out" id="out-content-gap"></div>
+      </div>
+    </div>
+
+    <!-- ===== Backlinks ===== -->
+    <div class="tabpane" id="tab-backlinks" hidden>
+      <div class="card">
+        <h2>Backlink-Übersicht</h2>
+        <p class="muted small">Wer verlinkt auf deine Domain? Kosten: ca. 6–10 Cent pro Abfrage.</p>
+        <form class="row-form" data-research="backlinks">
+          <select name="domain" class="domain-select"></select>
+          <button class="btn" type="submit">Abfragen</button>
+        </form>
+        <div class="research-out" id="out-backlinks"></div>
+      </div>
+      <div class="card">
+        <h2>Link-Lücken</h2>
+        <p class="muted small">Domains, die auf deine Konkurrenz verlinken, aber nicht auf dich – gute Kandidaten für Kooperationen. Kosten: ca. 3–5 Cent.</p>
+        <form class="row-form" data-research="link-gap">
+          <select name="own" class="domain-select"></select>
+          <input name="competitors" type="text" placeholder="Konkurrenz-Domains, mit Komma getrennt (max. 5)" autocomplete="off" required>
+          <button class="btn" type="submit">Lücken finden</button>
+        </form>
+        <div class="research-out" id="out-link-gap"></div>
+      </div>
+    </div>
+
+    <!-- ===== KI-Sichtbarkeit ===== -->
+    <div class="tabpane" id="tab-ki" hidden>
+      <div class="card">
+        <h2>Google-KI-Übersichten in deinen Analysen</h2>
+        <p class="muted small">Aus allen gespeicherten Analysen: Zeigt Google eine KI-Übersicht – und wirst du darin zitiert? Kostenlos.</p>
+        <div class="research-out" id="out-ai-summary"></div>
+      </div>
+      <div class="card">
+        <h2>Erwähnungen in KI-Antworten</h2>
+        <p class="muted small">Fragen, in deren KI-Antwort deine Domain (und/oder ein Keyword) vorkommt. <strong>Google</strong> = KI-Übersicht, Deutschland. <strong>ChatGPT</strong> gibt es bei DataForSEO nur für USA/Englisch. Kosten: ca. 12 Cent pro Abfrage.</p>
+        <form class="row-form" data-research="ai-mentions">
+          <select name="domain" class="domain-select"><option value="">(keine Domain)</option></select>
+          <input name="keyword" type="text" placeholder="Keyword (optional), z. B. alleine reisen" autocomplete="off">
+          <select name="platform"><option value="google">Google KI-Übersicht (DE)</option><option value="chat_gpt">ChatGPT (nur USA/Englisch)</option></select>
+          <button class="btn" type="submit">Abfragen</button>
+        </form>
+        <div class="research-out" id="out-ai-mentions"></div>
+      </div>
+    </div>
+
+    <!-- ===== Einstellungen ===== -->
+    <div class="tabpane" id="tab-einstellungen" hidden>
+      <div class="card">
+        <h2>Deine Domains</h2>
+        <p class="muted small">Damit erkennt das Tool deine eigenen Seiten (Position im Bericht, Rankings, Backlinks). Eine Domain pro Zeile.</p>
+        <textarea id="set-domains" rows="4" placeholder="kofferfreundin.de"></textarea>
+        <h2 style="margin-top:20px">Monatsbudget DataForSEO</h2>
+        <p class="muted small">Das Tool stoppt Abfragen, sobald dieser Betrag im laufenden Monat erreicht ist.</p>
+        <div class="row-form"><input id="set-budget" type="number" min="0" max="500" step="1" style="max-width:160px"> <span class="muted">US-Dollar pro Monat</span></div>
+        <div class="actions"><button type="button" id="set-save" class="btn">Speichern</button><span id="set-status" class="muted small"></span></div>
+      </div>
+      <div class="card">
+        <h2>Verbrauch diesen Monat</h2>
+        <div id="usage"></div>
+        <p class="muted small">Gezählt wird, was DataForSEO pro Abfrage zurückmeldet. Dein tatsächliches Guthaben siehst du im DataForSEO-Dashboard.</p>
+      </div>
+    </div>
   </main>
 </div>
 
 
 
 <script type="module" src="app.js"></script>
+<script type="module" src="tools.js"></script>
 </body>
 </html>

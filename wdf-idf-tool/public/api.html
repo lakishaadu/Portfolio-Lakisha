@@ -91,6 +91,33 @@
   </table>
   <p>Maschinenlesbare Beschreibung: <a href="openapi.json">openapi.json</a></p>
 
+  <h2>5. SEO-Recherche (kostet DataForSEO-Guthaben, Ergebnisse werden gespeichert)</h2>
+  <p>Alle per <code>POST</code> mit JSON-Body. Ein zweiter gleicher Aufruf liefert das gespeicherte Ergebnis kostenlos (<code>"fromCache": true</code>). Mit <code>"refresh": true</code> wird neu abgefragt. Ohne Domain wird die erste eigene Domain aus den Einstellungen genutzt.</p>
+  <table>
+    <thead><tr><th>Pfad</th><th>Body</th><th>Ergebnis</th></tr></thead>
+    <tbody>
+      <tr><td><code>/api/v1/research/keyword-ideas</code></td><td><code>{"keyword": "…"}</code></td><td>Verwandte Keywords mit Suchvolumen, Schwierigkeit (0–100), Suchabsicht</td></tr>
+      <tr><td><code>/api/v1/research/content-gap</code></td><td><code>{"competitor": "domain.de", "own": "optional"}</code></td><td>Keywords, für die die Konkurrenz rankt, die eigene Domain nicht</td></tr>
+      <tr><td><code>/api/v1/research/ranked-keywords</code></td><td><code>{"domain": "optional"}</code></td><td>Keywords, für die eine Domain rankt (Position, Suchvolumen, URL)</td></tr>
+      <tr><td><code>/api/v1/research/backlinks</code></td><td><code>{"domain": "optional"}</code></td><td>Backlink-Zusammenfassung, stärkste und neueste verlinkende Domains</td></tr>
+      <tr><td><code>/api/v1/research/link-gap</code></td><td><code>{"competitors": ["a.de","b.de"]}</code></td><td>Domains, die auf die Konkurrenz verlinken, aber nicht auf die eigene Domain</td></tr>
+      <tr><td><code>/api/v1/research/ai-mentions</code></td><td><code>{"keyword": "…", "domain": "optional", "platform": "google|chat_gpt"}</code></td><td>Fragen, in deren KI-Antwort Domain/Keyword vorkommen (chat_gpt nur USA/Englisch). Teuerster Aufruf (ca. 0,10 $).</td></tr>
+    </tbody>
+  </table>
+  <p>Die Analyse-Antwort enthält außerdem <code>googleInsights</code>: eigene Position, „Nutzer fragen auch“-Fragen (<code>peopleAlsoAsk</code>), KI-Übersicht (<code>aiOverview.present</code>, <code>ownCited</code>, <code>references</code>) und Featured Snippet.</p>
+
+  <h2>6. Rankings</h2>
+  <table>
+    <thead><tr><th>Methode &amp; Pfad</th><th>Zweck</th></tr></thead>
+    <tbody>
+      <tr><td><code>GET /api/v1/rankings</code></td><td>Beobachtete Keywords mit Positionsverlauf (<code>history[]</code>: date, position, url, top3)</td></tr>
+      <tr><td><code>POST /api/v1/rankings</code></td><td><code>{"keywords": ["…"], "domain": "optional"}</code> – Keywords beobachten (max. 50)</td></tr>
+      <tr><td><code>POST /api/v1/rankings/check</code></td><td>Positionen jetzt prüfen (läuft 1–3 Min. im Hintergrund, danach GET)</td></tr>
+      <tr><td><code>GET /api/v1/usage</code></td><td>Verbrauch und Restbudget des Monats</td></tr>
+    </tbody>
+  </table>
+  <p>Ist das Monatsbudget erreicht, antworten kostenpflichtige Aufrufe mit HTTP 402.</p>
+
   <h2>Fehler</h2>
   <p>Fehler kommen als <code>{"error": "…"}</code> mit HTTP-Status: 400 (Eingabe), 401 (Schlüssel fehlt/falsch), 404 (Projekt), 422 (Seite nicht ladbar oder zu wenige Konkurrenz-Seiten – dann steht in <code>competitors</code> warum), 502 (DataForSEO-Problem).</p>
 

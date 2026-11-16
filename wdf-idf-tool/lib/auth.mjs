@@ -34,3 +34,10 @@ export function whoIs(req) {
   if (m && Number(m[1]) > Date.now() && safeEqual(m[2], sign(m[1]))) return "browser";
   return null;
 }
+
+/** Geheimes Token für interne Aufrufe (Zeitplan → Hintergrund-Funktion). */
+export const internalToken = () => createHmac("sha256", "wdf-internal:" + (env("APP_PASSWORD") || env("BOT_API_KEY"))).update("rank-check").digest("base64url");
+export const isInternal = (req) => {
+  const t = req.headers.get("x-internal-token") || "";
+  return !!(env("APP_PASSWORD") || env("BOT_API_KEY")) && safeEqual(t, internalToken());
+};

@@ -308,7 +308,7 @@ function renderReport() {
              <div class="rep-box"><h3>Checks</h3><ul class="checks">${r.checks.map((c) => `<li class="${c.ok ? "ok" : "no"}"><span class="ic">${c.ok ? "✓" : "✗"}</span><span>${esc(c.label)}${c.value ? ` <em>${esc(c.value)}</em>` : ""}</span></li>`).join("")}</ul></div>`
           : `<div class="rep-box wide"><h3>Diese Begriffe gehören in deinen Text</h3><ul class="terms cols">${list(r.writingPlan, "plan", 24)}</ul></div>`
       }
-    </div>`;
+    </div>${insightsHtml(state.project.insights)}`;
 
   const h = state.project.history || [];
   $("#report-hist").innerHTML =
@@ -317,6 +317,23 @@ function renderReport() {
           .map((x) => `<tr><td>${new Date(x.date).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}</td><td class="num">${x.score} %</td><td class="num">${num(x.words)}</td><td class="num">${x.missing}</td><td class="num">${x.low}</td></tr>`)
           .join("")}</tbody></table>`
       : "";
+}
+
+function insightsHtml(ins) {
+  if (!ins) return "";
+  const pos = ins.ownPosition;
+  const aio = ins.aiOverview || {};
+  return `<div class="insights">
+    <div><h3>Deine Google-Position</h3>${
+      pos ? `<p><span class="pos" style="font-size:26px">#${pos.rank}</span><br><span class="small muted">${esc(pos.domain || "")}</span></p>` : `<p class="muted small">Nicht in den Top ${ins.checkedDepth || 40} gefunden${state.project.own ? "" : " (oder keine eigene Domain hinterlegt – siehe Einstellungen)"}.</p>`
+    }${ins.featuredSnippet ? `<p class="small">Hervorgehobenes Snippet: <strong>${esc(ins.featuredSnippet.domain)}</strong></p>` : ""}</div>
+    <div><h3>Nutzer fragen auch</h3>${ins.peopleAlsoAsk?.length ? `<ul>${ins.peopleAlsoAsk.map((q) => `<li>${esc(q)}</li>`).join("")}</ul><p class="small muted">Gut als Zwischenüberschriften oder FAQ.</p>` : `<p class="muted small">Google zeigt hier keine Fragen.</p>`}</div>
+    <div><h3>KI-Übersicht</h3>${
+      aio.present
+        ? `<p class="small">${aio.ownCited ? "✓ <strong>Du wirst zitiert.</strong>" : "✗ Du wirst nicht zitiert."}</p>${aio.references?.length ? `<ul>${aio.references.slice(0, 6).map((r) => `<li>${esc(r.domain)}</li>`).join("")}</ul>` : ""}`
+        : `<p class="muted small">Google zeigt für dieses Keyword keine KI-Übersicht.</p>`
+    }</div>
+  </div>`;
 }
 
 function renderCompetitors() {
