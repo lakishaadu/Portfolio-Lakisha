@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WDF*IDF Analyse</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="side">
+    <div class="brand">WDF*IDF<span>Analyse</span></div>
+    <button type="button" id="new" class="btn full">+ Neue Analyse</button>
+    <h4>Meine Projekte</h4>
+    <ul id="projects" class="projects"></ul>
+    <button type="button" id="open-settings" class="link side-settings">⚙ Einstellungen</button>
+  </aside>
+
+  <main class="main">
+    <div id="cfg-warning" class="notice" hidden>
+      Für die automatische Google-Abfrage fehlen noch deine DataForSEO-Zugangsdaten. <button type="button" id="cfg-link" class="link">Jetzt eintragen</button>
+    </div>
+
+    <form id="form" class="card">
+      <label for="keyword">Keyword</label>
+      <input id="keyword" type="text" placeholder="z. B. content marketing strategie" autocomplete="off" required>
+
+      <div class="own-head">
+        <span class="lbl">Dein Text <small>(optional – ohne Text bekommst du eine Schreibvorlage)</small></span>
+        <div class="seg">
+          <label><input type="radio" name="ownmode" id="mode-text" value="text" checked> Text einfügen</label>
+          <label><input type="radio" name="ownmode" id="mode-url" value="url"> Link</label>
+        </div>
+      </div>
+      <div id="own-text-wrap"><textarea id="own-text" rows="8" placeholder="Füge hier deinen Artikel ein (gern mit Zwischenüberschriften als eigene Zeilen)."></textarea></div>
+      <div id="own-url-wrap" hidden><input id="own-url" type="url" placeholder="https://deine-seite.de/blog/artikel"></div>
+
+      <details class="adv">
+        <summary>Erweitert</summary>
+        <div class="opts">
+          <div><label for="limit">Anzahl Begriffe</label><select id="limit"><option>30</option><option selected>50</option><option>100</option></select></div>
+          <div><label for="coverage">Begriff muss vorkommen bei</label><select id="coverage"><option value="20">mind. 20 % der Seiten</option><option value="30" selected>mind. 30 % der Seiten</option><option value="50">mind. 50 % der Seiten</option></select></div>
+          <div><label for="planned">Geplante Wortanzahl <small>(ohne eigenen Text)</small></label><input id="planned" type="number" min="100" step="100" value="1500"></div>
+        </div>
+        <label class="check"><input id="bigrams" type="checkbox" checked> Wortgruppen aus 2 Wörtern einbeziehen (z. B. „content marketing“)</label>
+        <label for="manual-urls">Konkurrenz-Links manuell <small>(statt Google-Abfrage – je Zeile ein Link; leer lassen für automatisch)</small></label>
+        <textarea id="manual-urls" rows="3" placeholder="https://…"></textarea>
+      </details>
+
+      <div class="actions">
+        <button id="run" class="btn" type="submit">Analyse starten</button>
+        <button id="recheck" class="btn ghost" type="button" hidden>Erneut prüfen (kostenlos)</button>
+        <span id="status" role="status"></span>
+      </div>
+      <div id="saved-hint" class="muted small"></div>
+    </form>
+
+    <section id="results" hidden>
+      <div class="report-tools">
+        <span class="muted small">Tipp: Bericht abfotografieren mit <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>4</kbd>, dann Leertaste und auf den Bericht klicken.</span>
+        <button type="button" id="print" class="btn ghost small">Als PDF sichern</button>
+      </div>
+      <article id="report" class="report"></article>
+      <div id="report-hist" class="card hist-card"></div>
+
+      <div class="card no-print">
+        <h2>Konkurrenz</h2>
+        <div id="competitors" class="competitors"></div>
+      </div>
+
+      <div class="card no-print">
+        <h2>Top 20 Begriffe im Vergleich (WDF*IDF)</h2>
+        <div id="legend" class="legend"></div>
+        <div id="chart-wrap"><div id="chart"></div><div id="tip" hidden></div></div>
+      </div>
+
+      <div class="card no-print">
+        <div class="toolbar">
+          <h2>Alle Begriffe</h2>
+          <div id="filters" class="filters">
+            <button type="button" class="chip active" data-filter="all">Alle</button>
+            <button type="button" class="chip" data-filter="todo">Nur To-dos</button>
+            <button type="button" class="chip" data-filter="missing">Fehlt</button>
+            <button type="button" class="chip" data-filter="low">Zu wenig</button>
+            <button type="button" class="chip" data-filter="over">Zu oft</button>
+          </div>
+          <button id="csv" type="button" class="btn ghost small">CSV exportieren</button>
+        </div>
+        <div class="table-wrap"><table id="table"></table></div>
+      </div>
+
+      <div class="card no-print">
+        <h2>Gliederung der Konkurrenz</h2>
+        <p class="muted">Welche Zwischenüberschriften (H2) nutzen die anderen? Gut, um Themenlücken zu finden.</p>
+        <div id="structure" class="structure"></div>
+      </div>
+
+      <div class="card explain no-print">
+        <h2>So wird gerechnet</h2>
+        <p><strong>WDF</strong> = <code>log₂(Häufigkeit + 1) / log₂(Wörter im Text)</code>. Die zehnte Erwähnung zählt viel weniger als die erste, Keyword-Stuffing bringt also nichts.</p>
+        <p><strong>IDF</strong> = <code>log₁₀(1 + Dokumente / Dokumente mit dem Begriff)</code>, berechnet über die verglichenen Seiten. Kommerzielle Tools nutzen dafür riesige Web-Datenbanken, deshalb weichen die absoluten Zahlen ab. Die Empfehlungen zeigen aber in dieselbe Richtung.</p>
+        <p><strong>Ziel</strong> = so oft, dass dein WDF dem Durchschnitt der Konkurrenz entspricht. <strong>Zu oft</strong> = mehr als der stärkste Konkurrent.</p>
+        <p><strong>Term-Abdeckung</strong> = wie viel vom Ziel du erreichst, gewichtet nach Wichtigkeit des Begriffs.</p>
+        <p><strong>Automatisch aussortiert</strong> werden Marktplätze, Shops, Preisvergleiche, Videos, Social Media, Foren, PDFs, Shop-/Produktseiten (erkannt am Warenkorb) und Seiten mit weniger als 300 Wörtern.</p>
+        <p class="muted">WDF*IDF hilft bei der Themenabdeckung, ist aber kein Ranking-Garant. Nutzen für die Leser:innen geht immer vor.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog id="settings">
+  <form id="settings-form" method="dialog">
+    <h2>Einstellungen</h2>
+    <p class="muted small">Die Google-Ergebnisse kommen über <strong>DataForSEO</strong>. Deine Zugangsdaten werden nur auf deinem Mac gespeichert (Ordner „daten“).</p>
+    <label for="dfs-login">API-Login <small>(deine DataForSEO-E-Mail)</small></label>
+    <input id="dfs-login" type="text" autocomplete="off">
+    <label for="dfs-password">API-Passwort <small>(steht im DataForSEO-Dashboard unter „API Access“ – nicht dein Login-Passwort)</small></label>
+    <input id="dfs-password" type="password" autocomplete="off">
+    <div class="actions">
+      <button class="btn" type="submit">Speichern</button>
+      <button class="btn ghost" type="button" id="close-settings">Abbrechen</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

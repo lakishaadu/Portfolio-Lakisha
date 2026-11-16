@@ -1,5 +1,5 @@
 // Holt eine fremde Webseite serverseitig ab (umgeht CORS im Browser).
-// Läuft als Netlify Function und wird vom lokalen server.mjs wiederverwendet.
+// Wird vom lokalen server.mjs genutzt.
 
 const MAX_BYTES = 4 * 1024 * 1024; // 4 MB
 const TIMEOUT_MS = 15000;
@@ -86,15 +86,3 @@ export async function fetchPage(rawUrl) {
     clearTimeout(timer);
   }
 }
-
-// Netlify Functions (v2)
-export default async (req) => {
-  const target = new URL(req.url).searchParams.get("url") || "";
-  const { status, body } = await fetchPage(target);
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8" },
-  });
-};
-
-export const config = { path: "/api/fetch" };
