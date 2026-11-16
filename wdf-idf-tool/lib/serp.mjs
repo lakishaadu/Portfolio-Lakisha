@@ -23,6 +23,35 @@ const BLOCKED = [
   ["trustpilot.", "Bewertungsportal"], ["google.", "Google-Dienst"],
 ];
 
+const isGoogleHost = (u) => {
+  try {
+    return /(^|\.)google\.[a-z.]+$/i.test(new URL(u).hostname);
+  } catch {
+    return false;
+  }
+};
+
+/** Holt die echte Zieladresse aus Google-Weiterleitungslinks (z. B. google.com/url?q=…, google.com/amp/s/…). */
+export function unwrapGoogleUrl(raw, domain) {
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    return raw;
+  }
+  if (!isGoogleHost(raw)) return raw;
+  for (const key of ["url", "q", "u", "adurl", "imgrefurl"]) {
+    const v = u.searchParams.get(key);
+    if (v && /^https?:\/\//i.test(v) && !isGoogleHost(v)) return v;
+  }
+  const amp = u.pathname.match(/^\/amp\/(s\/)?(.+)$/);
+  if (amp) return (amp[1] ? "https://" : "http://") + amp[2] + u.search;
+  // Ziel steckt manchmal kodiert im Pfad
+  const enc = decodeURIComponent(u.pathname + u.search).match(/https?:\/\/[^\s&#]+/);
+  if (enc && !isGoogleHost(enc[0])) return enc[0];
+  return raw;
+}
+
 export function blockReason(url) {
   let host;
   try {
@@ -68,12 +97,19 @@ export async function fetchSerp(keyword, { depth = 40 } = {}) {
     return { status: 502, body: { error: `DataForSEO: ${msg}${hint}` } };
   }
   const items = (task.result?.[0]?.items || []).filter((i) => i.type === "organic" && i.url);
-  const results = items.map((i) => ({
-    rank: i.rank_group,
-    url: i.url,
-    domain: i.domain,
-    title: i.title || "",
-    blocked: blockReason(i.url),
-  }));
+  // Protokoll für die Fehlersuche (Netlify → Logs → Functions)
+  console.log(`SERP „${keyword}“: ${items.length} organische Treffer. Beispiele:`, JSON.stringify(items.slice(0, 3).map((i) => ({ url: i.url, domain: i.domain, breadcrumb: i.breadcrumb }))));
+  const results = items.map((i) => {
+    const url = unwrapGoogleUrl(i.url, i.domain);
+    const unresolved = isGoogleHost(url) && i.domain && !isGoogleHost("https://" + i.domain);
+    return {
+      rank: i.rank_group,
+      url,
+      originalUrl: url !== i.url ? i.url : undefined,
+      domain: i.domain,
+      title: i.title || "",
+      blocked: unresolved ? "Google-Weiterleitung (Ziel nicht lesbar)" : blockReason(url),
+    };
+  });
   return { status: 200, body: { keyword, cost: data.cost ?? task.cost ?? null, results } };
 }
