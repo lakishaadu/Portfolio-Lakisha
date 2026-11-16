@@ -11,6 +11,8 @@ const PUBLIC = fileURLToPath(new URL("./public/", import.meta.url));
 const port = Number(process.env.PORT) || 8787;
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png" };
 
+const log = (msg) => console.log(`[${new Date().toLocaleTimeString("de-DE")}] ${msg}`);
+
 const send = (res, status, body) => {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(body));
@@ -38,7 +40,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (path === "/api/fetch") {
-      const { status, body } = await fetchPage(u.searchParams.get("url") || "");
+      const target = u.searchParams.get("url") || "";
+      const { status, body } = await fetchPage(target);
+      log(status === 200 ? `  geladen: ${target}` : `  NICHT geladen: ${target} – ${body.error}`);
       return send(res, status, body);
     }
     if (path === "/api/serp" && req.method === "POST") {
@@ -46,6 +50,10 @@ const server = http.createServer(async (req, res) => {
       if (!keyword?.trim()) return send(res, 400, { error: "Bitte ein Keyword eingeben." });
       const cfg = await getConfig();
       const { status, body } = await fetchSerp(keyword.trim(), { login: cfg.dfsLogin, password: cfg.dfsPassword });
+      if (status === 200) {
+        const ok = body.results.filter((r) => !r.blocked).length;
+        log(`\nGoogle-Abfrage „${keyword.trim()}“: ${body.results.length} Treffer, davon ${ok} nicht vorab aussortiert (Kosten: ${body.cost ?? "?"} $)`);
+      } else log(`\nGoogle-Abfrage „${keyword.trim()}“ fehlgeschlagen: ${body.error}`);
       return send(res, status, body);
     }
     if (path === "/api/config") {

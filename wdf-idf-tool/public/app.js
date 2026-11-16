@@ -1,4 +1,4 @@
-import { analyzeText, compute, coverageScore, lengthStats, median } from "./analysis.js";
+import { analyzeText, compute, coverageScore, lengthStats, median, STOP } from "./analysis.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -16,6 +16,7 @@ function extract(html) {
   const title = doc.querySelector("title")?.textContent.trim() || "";
   const desc = doc.querySelector('meta[name="description"]')?.getAttribute("content")?.trim() || "";
   const robots = doc.querySelector('meta[name="robots"]')?.getAttribute("content") || "";
+  const h1First = doc.querySelector("h1")?.textContent.replace(/\s+/g, " ").trim() || "";
   const fullText = doc.body?.textContent || "";
   const cartHits = (fullText.match(/in den warenkorb|zum warenkorb|add to cart|in den einkaufswagen/gi) || []).length;
 
@@ -26,7 +27,7 @@ function extract(html) {
   const best = cands.sort((a, b) => b.textContent.length - a.textContent.length)[0];
   if (best && best.textContent.trim().split(/\s+/).length > 150) root = best;
 
-  const h1 = (root.querySelector("h1") || doc.querySelector("h1"))?.textContent.replace(/\s+/g, " ").trim() || "";
+  const h1 = root.querySelector("h1")?.textContent.replace(/\s+/g, " ").trim() || h1First;
   const h2 = $$("h2", root).map((n) => n.textContent.replace(/\s+/g, " ").trim()).filter(Boolean);
   // Satzgrenzen an Blockelementen, damit keine Wortgruppen über Absätze hinweg entstehen
   $$("p,li,h1,h2,h3,h4,h5,h6,td,th,div,br,dt,dd,blockquote,figcaption", root).forEach((n) => n.append(" . "));
@@ -67,17 +68,122 @@ const setStatus = (msg, isError = false) => {
 
 const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
 
+/* ============ Eingabe: Keyword ODER Link ============ */
+const looksLikeUrl = (s) => /^https?:\/\/\S+$/i.test(s) || /^www\.[^\s.]+\.\S+$/i.test(s);
+const normUrl = (s) => (/^https?:\/\//i.test(s) ? s : "https://" + s);
+
+/** Schlägt anhand von Title, H1, URL und häufigen Wortgruppen das Haupt-Keyword eines Artikels vor. */
+function suggestKeywords(ex, url) {
+  const norm = (s) => String(s || "").toLowerCase().replace(/(\p{L})[-‐–](?=\p{L})/gu, "$1 ");
+  const words = (s) => norm(s).match(/[\p{L}\p{N}]+/gu) || [];
+  const ok = (w) => w.length > 1 && !STOP.has(w) && !/^\d+$/.test(w);
+  const pad = (arr) => ` ${arr.join(" ")} `;
+  let slug = "";
+  try { slug = decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).pop() || "").replace(/\.\w+$/, ""); } catch {}
+  const title = pad(words(ex.title)), h1 = pad(words(ex.h1)), slugW = pad(words(slug.replace(/[-_]/g, " ")));
+  const counts = new Map();
+  for (const sentence of norm(ex.text).split(/[.!?;:|•·\n]+/)) {
+    const t = sentence.match(/[\p{L}\p{N}]+/gu) || [];
+    for (let i = 0; i < t.length; i++)
+      for (let n = 1; n <= 3 && i + n <= t.length; n++) {
+        const g = t.slice(i, i + n);
+        if (!ok(g[0]) || !ok(g[n - 1])) continue;
+        const k = g.join(" ");
+        counts.set(k, (counts.get(k) || 0) + 1);
+      }
+  }
+  const scored = [];
+  for (const [k, f] of counts) {
+    const inT = title.includes(` ${k} `), inH = h1.includes(` ${k} `), inS = slugW.includes(` ${k} `);
+    if (f < 2 && !inT && !inH) continue;
+    const n = k.split(" ").length;
+    scored.push({ k, score: Math.log2(f + 1) * (1 + 2 * inT + 2 * inH + 1.5 * inS) * [0, 1, 2, 2.2][n] });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  // Markenname (aus der Domain) nicht vorschlagen
+  let brand = "";
+  try { brand = new URL(url).hostname.replace(/^www\./, "").split(".")[0].replace(/-/g, " "); } catch {}
+  const out = [];
+  // Die Wortgruppe aus der URL ist meist das Ziel-Keyword – wenn sie auch im Title/H1/Text vorkommt, zuerst
+  const slugPhrase = words(slug.replace(/[-_]/g, " ")).filter((w) => !/^\d+$/.test(w));
+  while (slugPhrase.length && STOP.has(slugPhrase[0])) slugPhrase.shift();
+  while (slugPhrase.length && STOP.has(slugPhrase[slugPhrase.length - 1])) slugPhrase.pop();
+  const sp = slugPhrase.join(" ");
+  if (slugPhrase.length >= 1 && slugPhrase.length <= 5 && sp !== brand && (title.includes(` ${sp} `) || h1.includes(` ${sp} `) || counts.has(sp))) out.push(sp);
+  for (const { k } of scored) {
+    if (out.length >= 5) break;
+    if (k === brand || out.includes(k)) continue;
+    if (!k.includes(" ") && out.some((o) => o.split(" ").includes(k))) continue;
+    out.push(k);
+  }
+  return out;
+}
+
+function syncInputMode() {
+  const isUrl = looksLikeUrl($("#keyword").value.trim());
+  $("#own-section").hidden = isUrl;
+  $("#link-hint").hidden = !isUrl;
+  $("#run").textContent = isUrl ? "Artikel laden" : "Analyse starten";
+  if (!isUrl || (state.pendingLink && state.pendingLink.url !== normUrl($("#keyword").value.trim()))) {
+    $("#kw-confirm").hidden = true;
+    state.pendingLink = null;
+  }
+}
+
+function showKeywordConfirm() {
+  const { suggestions, ex } = state.pendingLink;
+  $("#kw-pick").value = suggestions[0] || "";
+  $("#kw-article").textContent = ex.title || ex.h1 || state.pendingLink.url;
+  $("#kw-suggestions").innerHTML = suggestions.map((k) => `<button type="button" class="chip" data-kw="${esc(k)}">${esc(k)}</button>`).join("");
+  $$("#kw-suggestions [data-kw]").forEach((b) => b.addEventListener("click", () => {
+    $("#kw-pick").value = b.dataset.kw;
+    $$("#kw-suggestions .chip").forEach((x) => x.classList.toggle("active", x === b));
+  }));
+  $("#kw-suggestions .chip")?.classList.add("active");
+  $("#kw-confirm").hidden = false;
+  $("#kw-pick").focus();
+}
+
 /* ============ Ablauf: Analyse starten ============ */
 async function startAnalysis(e) {
   e.preventDefault();
-  const keyword = $("#keyword").value.trim();
-  if (!keyword) return setStatus("Bitte ein Keyword eingeben.", true);
+  const input = $("#keyword").value.trim();
+  if (!input) return setStatus("Bitte ein Keyword oder einen Link eingeben.", true);
+
+  if (!looksLikeUrl(input)) return runAnalysis(input, null);
+
+  // Link: Schritt 1 – Artikel laden und Keyword vorschlagen
+  const url = normUrl(input);
+  if (state.pendingLink?.url === url && !$("#kw-confirm").hidden) return confirmKeyword();
+  $("#run").disabled = true;
+  try {
+    setStatus("Lade deinen Artikel …");
+    const ex = extract(await loadUrl(url));
+    state.pendingLink = { url, ex, suggestions: suggestKeywords(ex, url) };
+    setStatus("");
+    showKeywordConfirm();
+  } catch (err) {
+    setStatus(err.message, true);
+  } finally {
+    $("#run").disabled = false;
+  }
+}
+
+function confirmKeyword() {
+  const kw = $("#kw-pick").value.trim();
+  if (!kw) return setStatus("Bitte ein Keyword auswählen oder eintippen.", true);
+  const { url, ex } = state.pendingLink;
+  return runAnalysis(kw, { kind: "url", url, ...ex });
+}
+
+async function runAnalysis(keyword, ownOverride) {
   const ownMode = $("input[name=ownmode]:checked").value;
   const ownText = $("#own-text").value.trim();
   const ownUrl = $("#own-url").value.trim();
   const manualUrls = [...new Set($("#manual-urls").value.split(/\s+/).filter((s) => /^https?:\/\//i.test(s)))];
 
   $("#run").disabled = true;
+  $("#kw-go").disabled = true;
   try {
     state.keyword = keyword;
     state.projectId = state.projectId && state.loadedKeyword === keyword ? state.projectId : null;
@@ -85,12 +191,14 @@ async function startAnalysis(e) {
 
     // 1) Eigener Text
     state.own = null;
-    if (ownMode === "text" && ownText) {
+    if (ownOverride) {
+      state.own = ownOverride;
+    } else if (ownMode === "text" && ownText) {
       state.own = { kind: "text", text: ownText, h2: detectH2(ownText) };
     } else if (ownMode === "url" && ownUrl) {
       setStatus("Lade deinen Artikel …");
-      const ex = extract(await loadUrl(ownUrl));
-      state.own = { kind: "url", url: ownUrl, ...ex };
+      const ex = extract(await loadUrl(normUrl(ownUrl)));
+      state.own = { kind: "url", url: normUrl(ownUrl), ...ex };
     }
     const ownHost = state.own?.url ? hostOf(state.own.url) : "";
 
@@ -100,24 +208,25 @@ async function startAnalysis(e) {
       candidates = manualUrls.map((url, i) => ({ rank: i + 1, url, domain: hostOf(url), title: "", blocked: null }));
       state.cost = null;
     } else {
-      setStatus("Frage Google-Top-Ergebnisse ab (google.de, Deutsch) …");
+      setStatus(`Frage Google-Top-Ergebnisse für „${keyword}“ ab (google.de, Deutsch) …`);
       const serp = await api("/api/serp", { method: "POST", body: { keyword } });
       candidates = serp.results;
       state.cost = serp.cost;
     }
-    state.competitors = candidates.map((c) => ({
-      ...c,
-      status: c.blocked ? "filtered" : ownHost && c.domain?.replace(/^www\./, "") === ownHost ? "filtered" : "pending",
-      reason: c.blocked || (ownHost && c.domain?.replace(/^www\./, "") === ownHost ? "Deine eigene Seite" : ""),
-    }));
+    state.competitors = candidates.map((c) => {
+      const own = ownHost && c.domain?.replace(/^www\./, "") === ownHost;
+      return { ...c, status: c.blocked || own ? "filtered" : "pending", reason: c.blocked || (own ? "Deine eigene Seite" : "") };
+    });
 
     // 3) Seiten laden, bis genug passende Texte da sind
     await loadCompetitors();
-    finishAndSave(true);
+    $("#kw-confirm").hidden = true;
+    await finishAndSave(true);
   } catch (err) {
     setStatus(err.message, true);
   } finally {
     $("#run").disabled = false;
+    $("#kw-go").disabled = false;
   }
 }
 
@@ -166,11 +275,20 @@ function recompute() {
   const o = opts();
   const comps = state.competitors.filter((c) => (c.status === "used" || c.manualInclude) && c.text);
   if (comps.length < 2) {
-    $("#results").hidden = true;
+    // Nur die Konkurrenz-Liste zeigen, damit du siehst, warum Seiten fehlen
+    $("#results").hidden = false;
+    $("#results").classList.add("only-competitors");
     renderCompetitors();
-    setStatus("Es wurden weniger als 2 passende Konkurrenz-Seiten gefunden. Nimm unten aussortierte Seiten wieder rein oder trag Links manuell ein.", true);
+    const n = state.competitors.length;
+    setStatus(
+      n === 0
+        ? "Google hat für dieses Keyword keine normalen Suchergebnisse geliefert. Prüfe die Schreibweise oder trag Links unter „Erweitert“ manuell ein."
+        : "Es wurden weniger als 2 passende Konkurrenz-Seiten gefunden. Unten siehst du, warum – du kannst Seiten mit „trotzdem nutzen“ wieder reinnehmen oder Links unter „Erweitert“ manuell eintragen.",
+      true
+    );
     return false;
   }
+  $("#results").classList.remove("only-competitors");
   for (const c of comps) Object.assign(c, analyzeText(c.text, o.bigrams));
   if (state.own) Object.assign(state.own, analyzeText(state.own.text, o.bigrams));
   const own = state.own && state.own.total > 0 ? state.own : null;
@@ -329,6 +447,10 @@ function renderCompetitors() {
       <span class="cmp-info">${kind === "used" ? (c.total ? `${num(c.total)} Wörter` : "") : esc(c.reason || "")}</span>
       ${kind === "used" ? `<button type="button" class="link" data-exclude="${i}">rausnehmen</button>` : c.text ? `<button type="button" class="link" data-include="${i}">trotzdem nutzen</button>` : ""}
     </li>`;
+  if (!state.competitors.length) {
+    $("#competitors").innerHTML = `<p class="muted">Keine Suchergebnisse erhalten.</p>`;
+    return;
+  }
   $("#competitors").innerHTML = `
     <h3>Verglichen (${groups.used.length})</h3><ul>${groups.used.map((x) => item(x, "used")).join("")}</ul>
     ${groups.filtered.length ? `<h3>Automatisch aussortiert (${groups.filtered.length})</h3><ul>${groups.filtered.map((x) => item(x, "filtered")).join("")}</ul>` : ""}
@@ -453,6 +575,7 @@ async function openProject(id) {
       $("#own-text").value = p.own?.text || "";
     }
     syncOwnMode();
+    syncInputMode();
     $("#saved-hint").textContent = `Projekt „${p.keyword}“ geöffnet. Text überarbeiten und „Erneut prüfen“ klicken – kostet nichts.`;
     $("#recheck").hidden = false;
     recompute();
@@ -466,18 +589,21 @@ async function openProject(id) {
 
 /** Erneut prüfen: eigener Text neu, Konkurrenz aus dem gespeicherten Projekt (keine API-Kosten). */
 async function recheck() {
-  const mode = $("input[name=ownmode]:checked").value;
+  const mode = state.own?.kind === "url" && looksLikeUrl($("#keyword").value.trim()) ? "url" : $("input[name=ownmode]:checked").value;
+  if (mode === "url" && !$("#own-url").value.trim() && state.own?.url) $("#own-url").value = state.own.url;
   try {
     if (mode === "text") {
       const text = $("#own-text").value.trim();
       if (!text) return setStatus("Bitte deinen Text einfügen.", true);
       state.own = { kind: "text", text, h2: detectH2(text) };
     } else {
-      const url = $("#own-url").value.trim();
+      const url = normUrl($("#own-url").value.trim());
       setStatus("Lade deinen Artikel …");
       state.own = { kind: "url", url, ...extract(await loadUrl(url)) };
     }
-    await finishAndSave(true);
+    const before = state.history.length;
+    await finishAndSave(false);
+    if (state.history.length === before) setStatus("Keine Änderung zur letzten Prüfung.");
   } catch (err) {
     setStatus(err.message, true);
   }
@@ -486,7 +612,9 @@ async function recheck() {
 function newAnalysis() {
   Object.assign(state, { projectId: null, loadedKeyword: null, own: null, competitors: [], rows: [], history: [], cost: null });
   $("#form").reset();
+  state.pendingLink = null;
   syncOwnMode();
+  syncInputMode();
   $("#results").hidden = true;
   $("#recheck").hidden = true;
   $("#saved-hint").textContent = "";
@@ -535,6 +663,9 @@ function exportCsv() {
 /* ============ Start ============ */
 $("#form").addEventListener("submit", startAnalysis);
 $("#recheck").addEventListener("click", recheck);
+$("#keyword").addEventListener("input", syncInputMode);
+$("#kw-go").addEventListener("click", confirmKeyword);
+$("#kw-pick").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); confirmKeyword(); } });
 $("#new").addEventListener("click", newAnalysis);
 $$("input[name=ownmode]").forEach((r) => r.addEventListener("change", syncOwnMode));
 ["#bigrams", "#limit", "#coverage", "#planned"].forEach((id) => $(id).addEventListener("change", () => state.competitors.length && recompute()));
@@ -549,5 +680,6 @@ $$(".chip").forEach((c) => c.addEventListener("click", () => {
   applyFilter();
 }));
 syncOwnMode();
+syncInputMode();
 loadConfig();
 loadProjectList();

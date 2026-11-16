@@ -18,7 +18,7 @@ const BLOCKED = [
   ["reddit.", "Forum"], ["gutefrage.net", "Forum"], ["quora.", "Forum"], ["spotify.", "Podcast/Musik"], ["podcasts.apple.", "Podcast"],
   ["apps.apple.", "App Store"], ["play.google.", "App Store"],
   // Verzeichnisse & Jobbörsen
-  ["indeed.", "Jobbörse"], ["stepstone.", "Jobbörse"], ["xing.", "Netzwerk"], ["gelbeseiten.", "Verzeichnis"], ["yelp.", "Verzeichnis"],
+  ["indeed.", "Jobbörse"], ["stepstone.", "Jobbörse"], ["xing.", "Netzwerk"], ["yelp.", "Verzeichnis"],
   ["trustpilot.", "Bewertungsportal"], ["google.", "Google-Dienst"],
 ];
 

@@ -25,11 +25,21 @@ Damit das Tool die Google-Ergebnisse selbst holen kann:
 Die Zugangsdaten liegen danach nur auf deinem Mac (Ordner `daten`).
 
 ## So nutzt du es
-- **Analyse starten:** Keyword eingeben, Text einfügen (oder Link zu deinem Artikel), „Analyse starten“. Dauert ca. 20–60 Sekunden.
+- **Mit Keyword:** Keyword ins obere Feld, optional deinen Text einfügen, „Analyse starten“. Dauert ca. 20–60 Sekunden.
+- **Mit Link:** Link zu deinem Artikel ins obere Feld, „Artikel laden“. Das Tool schlägt dir das Keyword vor (anklicken oder selbst ändern), dann „Mit diesem Keyword analysieren“. Dein Artikel ist automatisch „dein Text“.
 - **Ohne eigenen Text:** Du bekommst eine Schreibvorlage mit empfohlener Länge und den Begriffen, die rein sollten.
 - **Automatischer Filter:** Amazon, Shops, Preisvergleiche, YouTube, Social Media, Foren, PDFs, Produktseiten und zu kurze Seiten werden aussortiert. Du siehst unter „Konkurrenz“, was warum aussortiert wurde, und kannst Seiten trotzdem nutzen oder rausnehmen.
 - **Projekte:** Jede Analyse wird links gespeichert. Projekt öffnen → Text überarbeiten → **„Erneut prüfen“**. Das kostet nichts, weil die Konkurrenz gespeichert ist. Im Verlauf siehst du vorher → nachher.
 - **Bericht:** Oben auf der Ergebnisseite. Screenshot mit ⌘ ⇧ 4, dann Leertaste, dann auf den Bericht klicken – oder „Als PDF sichern“.
+
+## Wenn etwas nicht klappt
+Schau ins Terminal-Fenster: Dort steht bei jeder Analyse, wie viele Google-Treffer kamen und welche Seiten geladen werden konnten (und warum nicht). Ein Foto davon hilft beim Fehlersuchen.
+
+## Neue Version installieren
+1. Tool beenden (Terminal-Fenster schließen).
+2. Neue ZIP entpacken.
+3. Den Ordner **`daten`** aus dem alten Tool-Ordner in den neuen Ordner ziehen. Darin sind deine Projekte und Zugangsdaten.
+4. Neuen Ordner an den alten Platz legen und `Start.command` doppelklicken. Das „Dennoch öffnen“ kommt bei einer neuen Version einmal wieder.
 
 ## Kosten
 Pro neuer Analyse eine Google-Abfrage bei DataForSEO. Die tatsächlichen Kosten zeigt das Tool unter „Konkurrenz“ an. „Erneut prüfen“ ist kostenlos.

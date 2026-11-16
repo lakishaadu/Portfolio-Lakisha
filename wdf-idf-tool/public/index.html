@@ -22,9 +22,22 @@
     </div>
 
     <form id="form" class="card">
-      <label for="keyword">Keyword</label>
-      <input id="keyword" type="text" placeholder="z. B. content marketing strategie" autocomplete="off" required>
+      <label for="keyword">Keyword oder Link zu deinem Artikel</label>
+      <input id="keyword" type="text" placeholder="z. B. content marketing strategie  –  oder  https://deine-seite.de/blog/artikel" autocomplete="off" required>
+      <p id="link-hint" class="muted small" hidden>Link erkannt: Das Tool lädt deinen Artikel, schlägt dir das Haupt-Keyword vor und nutzt den Artikel automatisch als deinen Text.</p>
 
+      <div id="kw-confirm" class="kw-confirm" hidden>
+        <div class="small muted">Artikel geladen: <strong id="kw-article"></strong></div>
+        <label for="kw-pick">Mit welchem Keyword soll verglichen werden?</label>
+        <div id="kw-suggestions" class="filters"></div>
+        <div class="kw-row">
+          <input id="kw-pick" type="text" autocomplete="off" placeholder="Keyword">
+          <button type="button" id="kw-go" class="btn">Mit diesem Keyword analysieren</button>
+        </div>
+        <div class="small muted">Vorschlag aus Seitentitel, Überschrift, URL und den häufigsten Wortgruppen. Du kannst ihn anklicken oder selbst ändern.</div>
+      </div>
+
+      <div id="own-section">
       <div class="own-head">
         <span class="lbl">Dein Text <small>(optional – ohne Text bekommst du eine Schreibvorlage)</small></span>
         <div class="seg">
@@ -34,6 +47,7 @@
       </div>
       <div id="own-text-wrap"><textarea id="own-text" rows="8" placeholder="Füge hier deinen Artikel ein (gern mit Zwischenüberschriften als eigene Zeilen)."></textarea></div>
       <div id="own-url-wrap" hidden><input id="own-url" type="url" placeholder="https://deine-seite.de/blog/artikel"></div>
+      </div>
 
       <details class="adv">
         <summary>Erweitert</summary>
@@ -63,7 +77,7 @@
       <article id="report" class="report"></article>
       <div id="report-hist" class="card hist-card"></div>
 
-      <div class="card no-print">
+      <div class="card no-print cmp-card">
         <h2>Konkurrenz</h2>
         <div id="competitors" class="competitors"></div>
       </div>
