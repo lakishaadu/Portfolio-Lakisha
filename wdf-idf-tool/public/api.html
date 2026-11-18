@@ -106,6 +106,14 @@
   </table>
   <p>Die Analyse-Antwort enthält außerdem <code>googleInsights</code>: eigene Position, „Nutzer fragen auch“-Fragen (<code>peopleAlsoAsk</code>), KI-Übersicht (<code>aiOverview.present</code>, <code>ownCited</code>, <code>references</code>) und Featured Snippet.</p>
 
+  <p>Außerdem im <code>report</code>:</p>
+  <ul>
+    <li><code>report.trend</code>: Suchvolumen, Schwierigkeit, Suchabsicht und <code>season</code> (monatlicher Verlauf, Höhepunkt, Empfehlung, wann überarbeitet werden sollte).</li>
+    <li><code>report.content.tips</code>: Was die Top-Artikel anders machen (Format, Aktualität, Bilder, Aufzählungen, Tabellen, Lesbarkeit) und <code>report.content.titleIdeas</code>.</li>
+    <li>In <code>terms</code> markiert <code>generic: true</code> allgemeine Wörter (z. B. „Zeit“), die fürs Ranking unwichtig sind. <code>report.missing</code>/<code>tooFew</code> enthalten nur Themenbegriffe.</li>
+  </ul>
+  <p>Google Trends: <code>POST /api/v1/research/google-trends</code> mit <code>{"keyword": "…"}</code> → 5-Jahres-Verlauf, Vorjahresvergleich, aufsteigende Suchanfragen.</p>
+
   <h2>6. Rankings</h2>
   <table>
     <thead><tr><th>Methode &amp; Pfad</th><th>Zweck</th></tr></thead>

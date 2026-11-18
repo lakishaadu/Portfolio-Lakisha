@@ -165,7 +165,27 @@ $("#rk-check").addEventListener("click", async () => {
 });
 
 /* ================= Recherche-Formulare ================= */
+function trendLine(points) {
+  if (!points.length) return "";
+  const W = 640, H = 120, max = Math.max(...points.map((p) => p.value), 1);
+  const xy = points.map((p, i) => `${(i / Math.max(1, points.length - 1)) * W},${H - (p.value / max) * (H - 6) - 2}`).join(" ");
+  const years = [...new Set(points.map((p) => String(p.date).slice(0, 4)))];
+  return `<svg class="trend-line" viewBox="0 0 ${W} ${H + 16}" role="img" aria-label="Google-Trends-Verlauf 5 Jahre"><polyline points="${xy}"/>${years
+    .map((y) => {
+      const i = points.findIndex((p) => String(p.date).startsWith(y));
+      return `<text x="${(i / Math.max(1, points.length - 1)) * W}" y="${H + 13}">${y}</text>`;
+    })
+    .join("")}</svg>`;
+}
+
 const RENDER = {
+  "google-trends": (d) =>
+    `${trendLine(d.points)}
+    ${d.changeVsPreviousYear != null ? `<p class="small">Letzte 12 Monate im Vergleich zum Vorjahr: <strong>${d.changeVsPreviousYear >= 0 ? "▲" : "▼"} ${Math.abs(d.changeVsPreviousYear)} %</strong></p>` : ""}
+    <div class="insights" style="border:0;padding-top:0">
+      <div><h3>Gerade im Kommen</h3>${d.rising.length ? `<ul>${d.rising.map((q) => `<li><button type="button" class="link" data-analyse="${esc(q.query)}">${esc(q.query)}</button> <span class="muted small">${/^\d+$/.test(String(q.value)) ? "+" + q.value + " %" : esc(q.value)}</span></li>`).join("")}</ul>` : `<p class="muted small">Keine Daten.</p>`}</div>
+      <div><h3>Häufig zusammen gesucht</h3>${d.top.length ? `<ul>${d.top.map((q) => `<li><button type="button" class="link" data-analyse="${esc(q.query)}">${esc(q.query)}</button></li>`).join("")}</ul>` : `<p class="muted small">Keine Daten.</p>`}</div>
+    </div><p class="small muted">Klick auf eine Suchanfrage startet eine Analyse dafür.</p>`,
   "keyword-ideas": (d) =>
     table(
       ["Keyword", "Suchvolumen", "Schwierigkeit", "Absicht", "CPC", ""],

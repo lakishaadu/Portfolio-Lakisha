@@ -1,4 +1,5 @@
-// Reine Rechenlogik (ohne Oberfläche) – wird im Browser und in den Tests genutzt.
+// Reine Rechenlogik (ohne Oberfläche) – wird im Browser und auf dem Server genutzt.
+import { GENERAL_PPM, STOPWORDS_ISO } from "./general-de.js";
 
 export const STOP = new Set(`
 aber alle allem allen aller alles als also am an ander andere anderem anderen anderer anderes anders auch auf aus bei beim bin bis bist bitte da dabei dadurch dafür dagegen daher dahin damals damit danach daneben dann daran darauf daraus darin darum darunter das dass daß dazu dein deine deinem deinen deiner dem den denen denn dennoch der deren derer des deshalb dessen dich die dies diese diesem diesen dieser dieses dir doch dort du durch eben ebenso eher ein eine einem einen einer eines einige einigen einiger einiges einmal er es etwa etwas euch euer eure für gab gibt ging gegen geht gewesen habe haben hat hatte hätte hatten hier hin hinter ich ihm ihn ihnen ihr ihre ihrem ihren ihrer ihres im immer in indem ins ist ja je jede jedem jeden jeder jedes jedoch jene jetzt kann kannst kein keine keinem keinen keiner können könnte machen man manche mehr mein meine meinem meinen meiner mich mir mit muss müssen musst nach nachdem neben nein nicht nichts noch nun nur ob oder ohne schon sehr sein seine seinem seinen seiner seit selbst sich sie sind so solche soll sollen sollte sondern sonst sowie über um und uns unser unsere unter viel viele vom von vor wann war waren warum was weil weiter welche welchem welchen welcher welches wenn wer werde werden wie wieder will wir wird wirst wo wobei wollen worden wurde würde wurden würden zu zum zur zwar zwischen beispielsweise bzw usw etc ganz gut neue neuen neues erst ersten mal sowohl eigentlich wirklich gerade sodass hierbei finden lassen gehen kommen sehen geben möchten möchte bereits genau natürlich zudem außerdem ab per via dir dich euch uns sei seid wäre wären hast habt bist geworden worden wurden ihnen deren denen dieser jener jenes solcher solches dabei darauf hierzu hierfür somit wohl eher allerdings deshalb trotzdem ebenfalls stets meist meistens häufig selten oft jedoch einfach schnell klar beim dazu bspw ca inkl ggf evtl eigenen eigene eigener eigenes bieten bietet bietest dabei sollten sollte gibt gilt zeigt zeigen sowie hingegen bzw de com www https http html php
@@ -140,7 +141,12 @@ export function compute(own, comps, opts) {
     rows.push({ key: t, term: formsSorted[0] || t, forms: formsSorted.slice(0, 5), used, idf: i, avg: avgW * i, max: maxW * i, own: own ? wdf(fOwn, own.total) * i : 0, fOwn, target, maxF, avgCount });
   }
   rows.sort((a, b) => b.avg - a.avg);
-  return dedupe(rows).slice(0, opts.limit).map((r) => ({ ...r, status: status(r, !!own) }));
+  const all = dedupe(rows);
+  classifyRows(all, comps, opts.keyword);
+  // Wortgruppen leicht bevorzugen: „weihnachten allein verbringen“ sagt mehr als „verbringen“
+  const topic = all.filter((r) => !r.generic).sort((a, b) => b.avg * (b.key.includes(" ") ? 1.15 : 1) - a.avg * (a.key.includes(" ") ? 1.15 : 1));
+  const generic = all.filter((r) => r.generic).slice(0, 30);
+  return [...topic.slice(0, opts.limit), ...generic].map((r) => ({ ...r, status: status(r, !!own) }));
 }
 
 // Wenn „content marketing“ fast genauso stark ist wie „content“, beides behalten – aber Einzelwörter,
@@ -162,10 +168,59 @@ export function status(r, hasOwn) {
   return { key: "ok", diff: 0 };
 }
 
+/* ---------- Themenbegriff oder allgemeines Wort? ---------- */
+let GEN = null;
+const general = () => {
+  if (!GEN) {
+    GEN = new Map();
+    for (const e of GENERAL_PPM.split("|")) {
+      const i = e.lastIndexOf(" ");
+      GEN.set(e.slice(0, i), Number(e.slice(i + 1)));
+    }
+  }
+  return GEN;
+};
+// Webseiten-Wörter, die mit dem Thema nichts zu tun haben
+const BOILER = "artikel anzeige werbung google newsletter cookie cookies datenschutz impressum kommentar kommentare teilen lesen weiterlesen foto fotos bild bilder quelle abo abonnieren startseite login suche autor autorin redaktion copyright rechte vorbehalten klicken klick link links seite seiten website webseite email e-mail facebook instagram pinterest whatsapp twitter youtube video videos inhaltsverzeichnis ratgeber magazin beitrag beiträge update aktualisiert veröffentlicht stand uhr anzeigen partner affiliate provision erhältlich bevorzugen bevorzugte preis preise rabatt gutschein versand lieferung shop warenkorb bestellen hinweis cookies einstellungen zustimmen akzeptieren"
+  .split(" ");
+let GENERIC_STEMS = null, BOILER_SET = null;
+const BOILER_STEMS = () => BOILER_SET || (BOILER_SET = new Set(BOILER.map((w) => stemDe(w))));
+const genericStems = () => GENERIC_STEMS || (GENERIC_STEMS = new Set([...STOPWORDS_ISO.split(" "), ...BOILER].map((w) => stemDe(w.toLowerCase()))));
+export const KEYNESS_MIN = 6;
+
+/** Wie viel häufiger kommt ein Wortstamm in den Top-Artikeln vor als in normaler Sprache? */
+function keyness(stem, pooled, totalWords) {
+  const ppm = ((pooled.get(stem) || 0) / Math.max(1, totalWords)) * 1e6;
+  const g = general().get(stem);
+  return ppm / (g ?? 1);
+}
+
+/** Markiert allgemeine Wörter (z. B. „Zeit“, „bestimmt“) – Keyword-Bestandteile gelten nie als allgemein. */
+export function classifyRows(rows, comps, keyword = "") {
+  const pooled = new Map();
+  let totalWords = 0;
+  for (const c of comps) {
+    totalWords += c.total;
+    for (const [k, n] of c.counts) if (!k.includes(" ")) pooled.set(k, (pooled.get(k) || 0) + n);
+  }
+  const kwStems = new Set(String(keyword).toLowerCase().split(/[\s-]+/).filter(Boolean).map(stemDe));
+  const gs = genericStems();
+  for (const r of rows) {
+    const parts = r.key.split(" ");
+    const partGeneric = (p) => !kwStems.has(p) && (gs.has(p) || keyness(p, pooled, totalWords) < KEYNESS_MIN);
+    r.keyness = Math.round(Math.max(...parts.map((p) => keyness(p, pooled, totalWords))) * 10) / 10;
+    // Wortgruppen mit Webseiten-Wörtern („google bevorzugen“) sind nie Themenbegriffe
+    const boiler = parts.some((p) => BOILER_STEMS().has(p));
+    r.generic = boiler || parts.every(partGeneric);
+  }
+  return rows;
+}
+
 /** Gewichteter Abdeckungs-Score 0–100: wichtige Begriffe zählen mehr. */
 export function coverageScore(rows) {
   let sum = 0, got = 0;
   for (const r of rows) {
+    if (r.generic) continue;
     sum += r.avg;
     got += r.avg * Math.min(1, r.fOwn / Math.max(1, r.target));
   }

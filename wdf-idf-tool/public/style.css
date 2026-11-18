@@ -240,3 +240,12 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
 .layout > * { min-width: 0; }
 .research-out table, .rk-wrap table { min-width: 0; }
 .card a, .research-out a { color: var(--accent); }
+
+.season { width: 100%; max-width: 520px; height: auto; display: block; }
+.season rect { fill: var(--series-avg); }
+.season text { fill: var(--muted); font-size: 10px; }
+.insights.content ul li { margin: 5px 0; }
+tr.generic td { color: var(--muted); }
+.trend-line { width: 100%; height: auto; display: block; }
+.trend-line polyline { fill: none; stroke: var(--series-avg); stroke-width: 2; }
+.trend-line text { fill: var(--muted); font-size: 10px; }

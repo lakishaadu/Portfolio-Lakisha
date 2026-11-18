@@ -4,7 +4,7 @@ import { getStore } from "@netlify/blobs";
 import { DfsError } from "../../lib/dfs.mjs";
 import { getSettings, saveSettings, getUsage, budgetLeft } from "../../lib/settings.mjs";
 import { listTracked, addTracked, removeTracked, MAX_TRACKED } from "../../lib/rankings.mjs";
-import { keywordIdeas, contentGap, rankedKeywords, backlinkOverview, linkGap, aiMentions } from "../../lib/research.mjs";
+import { keywordIdeas, contentGap, rankedKeywords, backlinkOverview, linkGap, aiMentions, googleTrends } from "../../lib/research.mjs";
 import { runPipeline, loadArticle, ownFromInput, UserError } from "../../lib/pipeline.mjs";
 import { suggestKeywords } from "../../lib/extract.mjs";
 import { dfsConfigured } from "../../lib/serp.mjs";
@@ -218,6 +218,8 @@ export default async (req, context) => {
       const force = !!b.refresh;
       const own = b.own || (await getSettings()).domains[0];
       switch (path) {
+        case "/api/research/google-trends":
+          return json(await cached("google-trends", { keyword: b.keyword }, force, () => googleTrends(b.keyword)));
         case "/api/research/keyword-ideas":
           return json(await cached("keyword-ideas", { keyword: b.keyword }, force, () => keywordIdeas(b.keyword)));
         case "/api/research/content-gap":

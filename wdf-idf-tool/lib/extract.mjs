@@ -13,6 +13,15 @@ export function extract(html) {
   const desc = clean(doc.querySelector('meta[name="description"]')?.getAttribute("content"));
   const robots = doc.querySelector('meta[name="robots"]')?.getAttribute("content") || "";
   const h1First = clean(doc.querySelector("h1")?.textContent);
+  // Veröffentlichungs-/Aktualisierungsdatum (Meta-Tags, JSON-LD, <time>)
+  const metaDate = (n) => doc.querySelector(`meta[property="${n}"], meta[name="${n}"], meta[itemprop="${n}"]`)?.getAttribute("content") || "";
+  const ldDate = (k) => (ld.match(new RegExp(`"${k}"\\s*:\\s*"([^"]{8,40})"`)) || [])[1] || "";
+  const toIso = (v) => {
+    const t = Date.parse(v);
+    return Number.isFinite(t) && t > Date.parse("2000-01-01") && t < Date.now() + 864e5 ? new Date(t).toISOString().slice(0, 10) : null;
+  };
+  const published = toIso(metaDate("article:published_time") || ldDate("datePublished") || doc.querySelector("time[datetime]")?.getAttribute("datetime") || "");
+  const modified = toIso(metaDate("article:modified_time") || metaDate("og:updated_time") || ldDate("dateModified") || "") || published;
   const body = doc.body || doc.documentElement;
   const cartHits = (body.textContent.match(/in den warenkorb|zum warenkorb|add to cart|in den einkaufswagen/gi) || []).length;
 
@@ -24,11 +33,14 @@ export function extract(html) {
   if (best && best.textContent.trim().split(/\s+/).length > 150) root = best;
 
   const h1 = clean(root.querySelector("h1")?.textContent) || h1First;
+  const images = $$("img", root).filter((i) => !/logo|icon|avatar|pixel|spacer/i.test((i.getAttribute("src") || "") + (i.getAttribute("class") || ""))).length;
+  const lists = $$("ul, ol", root).filter((l) => l.querySelectorAll("li").length >= 2).length;
+  const tables = $$("table", root).length;
   const h2 = $$("h2", root).map((n) => clean(n.textContent)).filter(Boolean);
   // Satzgrenzen an Blockelementen, damit keine Wortgruppen über Absätze hinweg entstehen
   $$("p,li,h1,h2,h3,h4,h5,h6,td,th,div,br,dt,dd,blockquote,figcaption", root).forEach((n) => n.append(" . "));
   const text = clean(root.textContent);
-  return { title, desc, h1, h2, text, isShop: (productSchema && cartHits > 0) || cartHits >= 2, noindex: /noindex/i.test(robots) };
+  return { title, desc, h1, h2, text, images, lists, tables, published, modified, isShop: (productSchema && cartHits > 0) || cartHits >= 2, noindex: /noindex/i.test(robots) };
 }
 
 /** Schlägt anhand von URL, Title, H1 und häufigen Wortgruppen das Haupt-Keyword eines Artikels vor. */

@@ -148,3 +148,54 @@ export async function aiMentions({ domain, keyword, platform = "google" }) {
   }));
   return { domain: d, keyword: keyword || null, platform, cost, total: num(result?.total_count), items };
 }
+
+/* ---------- Suchvolumen-Verlauf eines Keywords (für jede Analyse) ---------- */
+export async function keywordOverview(keyword, { area = "analyse" } = {}) {
+  const kw = String(keyword || "").trim().toLowerCase();
+  const { result, cost } = await dfsLive("/v3/dataforseo_labs/google/keyword_overview/live", { keywords: [kw], ...DE }, { area });
+  const it = result?.items?.[0];
+  if (!it) return { cost, trend: null };
+  return {
+    cost,
+    trend: {
+      searchVolume: num(it.keyword_info?.search_volume),
+      monthly: (it.keyword_info?.monthly_searches || []).map((m) => ({ year: m.year, month: m.month, search_volume: num(m.search_volume) })),
+      yearlyChange: num(it.keyword_info?.search_volume_trend?.yearly),
+      difficulty: num(it.keyword_properties?.keyword_difficulty),
+      intent: it.search_intent_info?.main_intent || null,
+    },
+  };
+}
+
+/* ---------- Google Trends (5 Jahre + aufsteigende Suchanfragen) ---------- */
+export async function googleTrends(keyword) {
+  const kw = String(keyword || "").trim().toLowerCase();
+  if (!kw) throw new DfsError("Bitte ein Keyword angeben.", 400);
+  const { result, cost } = await dfsLive(
+    "/v3/keywords_data/google_trends/explore/live",
+    { keywords: [kw], ...DE, time_range: "past_5_years", item_types: ["google_trends_graph", "google_trends_queries_list"] },
+    { area: "trends" }
+  );
+  const items = result?.items || [];
+  const graph = items.find((i) => i.type === "google_trends_graph");
+  const queries = items.find((i) => i.type === "google_trends_queries_list");
+  const points = (graph?.data || [])
+    .filter((d) => !d.missing_data)
+    .map((d) => ({ date: d.date_from, value: num(Array.isArray(d.values) ? d.values[0] : d.values) }))
+    .filter((d) => d.value != null);
+  // Jahresvergleich: letzte 12 Monate vs. die 12 Monate davor
+  const byYear = (from, to) => {
+    const sel = points.slice(from, to);
+    return sel.length ? sel.reduce((a, d) => a + d.value, 0) / sel.length : null;
+  };
+  const perYear = Math.max(1, Math.round(points.length / 5));
+  const last = byYear(-perYear), prev = byYear(-2 * perYear, -perYear);
+  return {
+    keyword: kw,
+    cost,
+    points,
+    changeVsPreviousYear: last != null && prev ? Math.round(((last - prev) / prev) * 100) : null,
+    rising: (queries?.data?.rising || []).slice(0, 10).map((q) => ({ query: q.query, value: q.value })),
+    top: (queries?.data?.top || []).slice(0, 10).map((q) => ({ query: q.query, value: q.value })),
+  };
+}

@@ -2,6 +2,7 @@
 import { fetchPage } from "./fetch-page.mjs";
 import { fetchSerp, blockReason } from "./serp.mjs";
 import { getSettings } from "./settings.mjs";
+import { keywordOverview } from "./research.mjs";
 import { extract, suggestKeywords, detectH2 } from "./extract.mjs";
 import { analyzeText } from "../public/analysis.js";
 
@@ -66,10 +67,11 @@ export async function runPipeline(input, { deadlineMs = 45000 } = {}) {
   if (manual.length) {
     candidates = manual.map((url, i) => ({ rank: i + 1, url, domain: hostOf(url), title: "", blocked: blockReason(url) }));
   } else {
-    const serp = await fetchSerp(keyword, { ownDomains });
+    // Google-Ergebnisse und Suchvolumen-Verlauf parallel holen
+    const [serp, ov] = await Promise.all([fetchSerp(keyword, { ownDomains }), keywordOverview(keyword).catch((err) => (console.log("Keyword-Overview fehlgeschlagen:", err.message), null))]);
     candidates = serp.results;
-    cost = serp.cost;
-    insights = serp.insights;
+    cost = serp.cost + (ov?.cost || 0);
+    insights = { ...serp.insights, trend: ov?.trend || null };
   }
   const isOwnDomain = (d) => !!d && ownDomains.some((o) => d === o || d.endsWith("." + o));
   const competitors = candidates.map((c) => {
@@ -89,7 +91,7 @@ export async function runPipeline(input, { deadlineMs = 45000 } = {}) {
         const { status, body } = await fetchPage(c.url);
         if (status !== 200) throw new Error(body.error);
         const ex = extract(body.html);
-        Object.assign(c, { title: ex.title || c.title, h1: ex.h1, h2: ex.h2, text: ex.text });
+        Object.assign(c, { title: ex.title || c.title, h1: ex.h1, h2: ex.h2, text: ex.text, images: ex.images, lists: ex.lists, tables: ex.tables, published: ex.published, modified: ex.modified });
         if (body.finalUrl && !/google\./.test(new URL(body.finalUrl).hostname)) Object.assign(c, { url: body.finalUrl, domain: hostOf(body.finalUrl) });
         const words = analyzeText(ex.text, false).total;
         if (ex.isShop) Object.assign(c, { status: "filtered", reason: "Shop-/Produktseite" });

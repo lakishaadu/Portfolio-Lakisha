@@ -126,6 +126,7 @@
             <button type="button" class="chip" data-filter="low">Zu wenig</button>
             <button type="button" class="chip" data-filter="over">Zu oft</button>
           </div>
+          <label class="check small" style="margin:0"><input type="checkbox" id="show-generic"> Allgemeine Wörter zeigen</label>
           <button id="csv" type="button" class="btn ghost small">CSV exportieren</button>
         </div>
         <div class="table-wrap"><table id="table"></table></div>
@@ -143,6 +144,7 @@
         <p><strong>IDF</strong> = <code>log₁₀(1 + Dokumente / Dokumente mit dem Begriff)</code>, berechnet über die verglichenen Seiten. Kommerzielle Tools nutzen dafür riesige Web-Datenbanken, deshalb weichen die absoluten Zahlen ab. Die Empfehlungen zeigen aber in dieselbe Richtung.</p>
         <p><strong>Ziel</strong> = so oft, dass dein WDF dem Durchschnitt der Konkurrenz entspricht. <strong>Zu oft</strong> = mehr als der stärkste Konkurrent.</p>
         <p><strong>Term-Abdeckung</strong> = wie viel vom Ziel du erreichst, gewichtet nach Wichtigkeit des Begriffs.</p>
+        <p><strong>Themenbegriffe statt Allerweltswörter:</strong> Jeder Begriff wird mit dem allgemeinen deutschen Wortschatz verglichen. Kommt er in den Top-Artikeln nicht mindestens 6× häufiger vor als in normaler Sprache (z. B. „Zeit“, „bestimmt“), gilt er als allgemein und zählt nicht für Bericht und Score. Wortschatz-Daten: FrequencyWords (CC BY-SA 4.0), Füllwörter: stopwords-iso (MIT).</p>
         <p><strong>Wortformen</strong> werden zusammengeführt (z. B. „Tipp/Tipps“, „Inhalt/Inhalte“). Welche Schreibweisen dahinterstecken, siehst du in der Tabelle.</p>
         <p><strong>Automatisch aussortiert</strong> werden Marktplätze, Shops, Preisvergleiche, Videos, Social Media, Foren, PDFs, Shop-/Produktseiten (erkannt am Warenkorb) und Seiten mit weniger als 300 Wörtern.</p>
         <p class="muted">WDF*IDF hilft bei der Themenabdeckung, ist aber kein Ranking-Garant. Nutzen für die Leser:innen geht immer vor.</p>
@@ -184,6 +186,15 @@
           <button class="btn" type="submit">Ideen finden</button>
         </form>
         <div class="research-out" id="out-keyword-ideas"></div>
+      </div>
+      <div class="card">
+        <h2>Google Trends</h2>
+        <p class="muted small">Wie entwickelt sich das Interesse an einem Thema (5 Jahre, Deutschland) – und welche Suchanfragen sind gerade im Kommen? Kosten: ca. 1 Cent.</p>
+        <form class="row-form" data-research="google-trends">
+          <input name="keyword" type="text" placeholder="Thema, z. B. weihnachten alleine" autocomplete="off" required>
+          <button class="btn" type="submit">Trends ansehen</button>
+        </form>
+        <div class="research-out" id="out-google-trends"></div>
       </div>
       <div class="card">
         <h2>Content-Lücken</h2>

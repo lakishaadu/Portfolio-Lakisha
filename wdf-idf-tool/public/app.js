@@ -279,7 +279,7 @@ function detectH2(text) {
 function renderAll() {
   renderCompetitors();
   renderReport();
-  renderChart(state.ev.rows.slice(0, 20));
+  renderChart(state.ev.rows.filter((r) => !r.generic).slice(0, 20));
   renderTable();
   renderStructure();
 }
@@ -319,7 +319,7 @@ function renderReport() {
              <div class="rep-box"><h3>Checks</h3><ul class="checks">${r.checks.map((c) => `<li class="${c.ok ? "ok" : "no"}"><span class="ic">${c.ok ? "✓" : "✗"}</span><span>${esc(c.label)}${c.value ? ` <em>${esc(c.value)}</em>` : ""}</span></li>`).join("")}</ul></div>`
           : `<div class="rep-box wide"><h3>Diese Begriffe gehören in deinen Text</h3><ul class="terms cols">${list(r.writingPlan, "plan", 24)}</ul></div>`
       }
-    </div>${insightsHtml(state.project.insights)}`;
+    </div>${insightsHtml(state.project.insights)}${trendHtml(r.trend)}${contentHtml(r.content)}`;
 
   const h = state.project.history || [];
   $("#report-hist").innerHTML =
@@ -328,6 +328,39 @@ function renderReport() {
           .map((x) => `<tr><td>${new Date(x.date).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}</td><td class="num">${x.score} %</td><td class="num">${num(x.words)}</td><td class="num">${x.missing}</td><td class="num">${x.low}</td></tr>`)
           .join("")}</tbody></table>`
       : "";
+}
+
+const INTENT_DE = { informational: "Information", navigational: "Navigation", commercial: "Kaufvorbereitung", transactional: "Kauf" };
+
+function seasonBars(points) {
+  const max = Math.max(...points.map((p) => p.value), 1);
+  const W = 360, H = 90, bw = W / points.length;
+  return `<svg viewBox="0 0 ${W} ${H + 18}" class="season" role="img" aria-label="Suchvolumen der letzten 12 Monate">${points
+    .map((p, i) => {
+      const h = Math.max(2, (p.value / max) * H);
+      return `<g><title>${esc(p.label)}: ${num(p.value)} Suchen</title><rect x="${i * bw + 3}" y="${H - h}" width="${bw - 6}" height="${h}" rx="3"/><text x="${i * bw + bw / 2}" y="${H + 13}" text-anchor="middle">${esc(p.label.slice(0, 3))}</text></g>`;
+    })
+    .join("")}</svg>`;
+}
+
+function trendHtml(t) {
+  if (!t) return "";
+  const s = t.season;
+  return `<div class="insights trend">
+    <div><h3>Suchvolumen</h3><p><span class="pos" style="font-size:26px">${t.searchVolume != null ? num(t.searchVolume) : "–"}</span><br><span class="small muted">Suchen pro Monat (Google.de)</span></p>
+      ${t.yearlyChange != null ? `<p class="small">${t.yearlyChange >= 0 ? "▲" : "▼"} ${Math.abs(Math.round(t.yearlyChange))} % zum Vorjahr</p>` : ""}
+      ${t.difficulty != null ? `<p class="small">Schwierigkeit: <strong>${t.difficulty}</strong>/100${t.difficulty >= 60 ? " – schwer, ggf. ein spezielleres Keyword wählen" : t.difficulty <= 30 ? " – gute Chancen" : ""}</p>` : ""}
+      ${t.intent ? `<p class="small">Suchabsicht: ${esc(INTENT_DE[t.intent] || t.intent)}</p>` : ""}</div>
+    <div style="grid-column: span 2"><h3>Saison (letzte 12 Monate)</h3>${s ? seasonBars(s.points) + `<p class="small">${esc(s.advice)}</p>` : `<p class="muted small">Für dieses Keyword liefert DataForSEO keinen Verlauf.</p>`}</div>
+  </div>`;
+}
+
+function contentHtml(c) {
+  if (!c || (!c.tips.length && !c.titleIdeas.length)) return "";
+  return `<div class="insights content">
+    <div style="grid-column: span 2"><h3>Was die Top-Artikel anders machen</h3><ul>${c.tips.map((t) => `<li>${esc(t.text)}</li>`).join("")}</ul></div>
+    <div><h3>Title-Ideen</h3><ul>${c.titleIdeas.map((t) => `<li>${esc(t.title)} <span class="muted small">(${t.length} Zeichen${t.length > 60 ? " – zu lang" : ""})</span></li>`).join("")}</ul><p class="small muted">Zum Weiterdenken – in deinem Ton anpassen.</p></div>
+  </div>`;
 }
 
 function insightsHtml(ins) {
@@ -396,10 +429,11 @@ function renderTable() {
     : `<tr><th>#</th><th>Begriff</th><th class="num">Konkurrenz Ø<br><small>WDF*IDF</small></th><th class="num">Konkurrenz max</th><th class="num">Genutzt von</th><th class="num">Ø Erwähnungen</th><th class="num">Ziel bei ${num(opts().plannedWords)} Wörtern</th></tr>`;
   const body = rows
     .map((r, i) => {
-      const cls = kw && r.term.includes(kw) ? "kw" : "";
+      const cls = (kw && r.term.includes(kw) ? "kw " : "") + (r.generic ? "generic" : "");
+      const tag = r.generic ? ` <span class="pill plan" title="Kommt in normaler Sprache genauso oft vor – fürs Ranking unwichtig">allgemein</span>` : "";
       return own
-        ? `<tr class="${cls}" data-status="${r.status.key}"><td>${i + 1}</td><td class="term">${esc(r.term)}${formsHtml(r)}</td><td class="num">${fmt(r.avg)}</td><td class="num">${fmt(r.max)}</td><td class="num">${fmt(r.own)}</td><td class="num">${r.used}/${n}</td><td class="num">${r.fOwn}</td><td class="num">${r.target}</td><td><span class="pill ${r.status.key}">${ACTION_TXT[r.status.key](r)}</span></td></tr>`
-        : `<tr class="${cls}"><td>${i + 1}</td><td class="term">${esc(r.term)}${formsHtml(r)}</td><td class="num">${fmt(r.avg)}</td><td class="num">${fmt(r.max)}</td><td class="num">${r.used}/${n}</td><td class="num">${fmt(r.avgCount, 1)}</td><td class="num">${r.target}×</td></tr>`;
+        ? `<tr class="${cls}" data-status="${r.status.key}" data-generic="${r.generic ? 1 : 0}"><td>${i + 1}</td><td class="term">${esc(r.term)}${tag}${formsHtml(r)}</td><td class="num">${fmt(r.avg)}</td><td class="num">${fmt(r.max)}</td><td class="num">${fmt(r.own)}</td><td class="num">${r.used}/${n}</td><td class="num">${r.fOwn}</td><td class="num">${r.target}</td><td><span class="pill ${r.status.key}">${ACTION_TXT[r.status.key](r)}</span></td></tr>`
+        : `<tr class="${cls}" data-generic="${r.generic ? 1 : 0}"><td>${i + 1}</td><td class="term">${esc(r.term)}${tag}${formsHtml(r)}</td><td class="num">${fmt(r.avg)}</td><td class="num">${fmt(r.max)}</td><td class="num">${r.used}/${n}</td><td class="num">${fmt(r.avgCount, 1)}</td><td class="num">${r.target}×</td></tr>`;
     })
     .join("");
   $("#table").innerHTML = `<thead>${head}</thead><tbody>${body}</tbody>`;
@@ -409,7 +443,8 @@ function renderTable() {
 
 function applyFilter() {
   const f = $(".chip.active", $("#filters"))?.dataset.filter || "all";
-  $$("#table tbody tr").forEach((tr) => (tr.hidden = !(f === "all" || (f === "todo" ? tr.dataset.status !== "ok" : tr.dataset.status === f))));
+  const showGeneric = $("#show-generic")?.checked;
+  $$("#table tbody tr").forEach((tr) => (tr.hidden = (tr.dataset.generic === "1" && !showGeneric) || !(f === "all" || (f === "todo" ? tr.dataset.status !== "ok" : tr.dataset.status === f))));
 }
 
 function renderStructure() {
@@ -543,6 +578,7 @@ $$("input[name=ownmode]").forEach((r) => r.addEventListener("change", syncOwnMod
 ["#bigrams", "#limit", "#coverage", "#planned"].forEach((id) => $(id).addEventListener("change", () => state.project && recompute()));
 $("#csv").addEventListener("click", exportCsv);
 $("#print").addEventListener("click", () => window.print());
+$("#show-generic")?.addEventListener("change", applyFilter);
 $$("#filters .chip").forEach((c) =>
   c.addEventListener("click", () => {
     $$("#filters .chip").forEach((x) => x.classList.toggle("active", x === c));
